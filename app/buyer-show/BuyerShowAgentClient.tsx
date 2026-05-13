@@ -41,6 +41,13 @@ type TagGroup = keyof typeof defaultFixedTags;
 type ClientUploadedAsset = UploadedAsset & {
   name: string;
   previewUrl: string;
+  uploadStatus?: 'uploading' | 'uploaded' | 'failed';
+  uploadError?: string;
+};
+
+type AssetUploadCompletion = {
+  objectKey?: string;
+  error?: string;
 };
 
 type SignedAssetUpload = {
@@ -200,6 +207,18 @@ function toAssetPayload(asset: ClientUploadedAsset): UploadedAsset {
     localPreviewKey: asset.objectKey ? undefined : asset.localPreviewKey,
     temporaryObjectUrl: asset.temporaryObjectUrl,
     deletedAfterProcessing: asset.deletedAfterProcessing,
+  };
+}
+
+function createOptimisticAsset(type: UploadedAssetType, file: File, index: number): ClientUploadedAsset {
+  validateUploadFile(file);
+  return {
+    id: `${type}-${Date.now()}-${index}`,
+    type,
+    name: file.name,
+    previewUrl: URL.createObjectURL(file),
+    deletedAfterProcessing: false,
+    uploadStatus: 'uploading',
   };
 }
 
@@ -523,13 +542,7 @@ function displayCategoryFromProductInfo(category: ProductCategory): ProductCateg
 }
 
 async function prepareImageForUpload(file: File) {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('只能上传图片文件');
-  }
-  const contentType = normalizeUploadContentType(file.type);
-  if (!contentType) {
-    throw new Error('只支持 JPG、PNG 或 WebP 图片');
-  }
+  const contentType = validateUploadFile(file);
 
   const fallback = {
     blob: file,
@@ -564,6 +577,17 @@ async function prepareImageForUpload(file: File) {
   } finally {
     bitmap.close();
   }
+}
+
+function validateUploadFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('只能上传图片文件');
+  }
+  const contentType = normalizeUploadContentType(file.type);
+  if (!contentType) {
+    throw new Error('只支持 JPG、PNG 或 WebP 图片');
+  }
+  return contentType;
 }
 
 function normalizeUploadContentType(contentType: string) {
@@ -646,6 +670,7 @@ export default function BuyerShowAgentClient() {
   const [previewImage, setPreviewImage] = useState<GeneratedImage | undefined>();
   const [snapshotStatus, setSnapshotStatus] = useState<string | undefined>();
   const generationRequestIdRef = useRef(0);
+  const pendingAssetUploadsRef = useRef(new Map<string, Promise<AssetUploadCompletion>>());
 
   useEffect(() => {
     setFixedClaims(readStoredTags('claims'));
@@ -689,7 +714,13 @@ export default function BuyerShowAgentClient() {
       saveSkinAsFixed,
       saveUsageFeelAsFixed,
       assets: assets.map((asset) => ({
-        ...asset,
+        id: asset.id,
+        type: asset.type,
+        name: asset.name,
+        objectKey: asset.objectKey,
+        localPreviewKey: asset.localPreviewKey,
+        temporaryObjectUrl: asset.temporaryObjectUrl,
+        deletedAfterProcessing: asset.deletedAfterProcessing,
         previewUrl: asset.localPreviewKey || '',
       })),
       sets: cloneGenerationSets(sets),
@@ -732,6 +763,7 @@ export default function BuyerShowAgentClient() {
       setSaveClaimAsFixed(snapshot.saveClaimAsFixed);
       setSaveSkinAsFixed(snapshot.saveSkinAsFixed);
       setSaveUsageFeelAsFixed(snapshot.saveUsageFeelAsFixed);
+      pendingAssetUploadsRef.current.clear();
       setAssets((current) => {
         current.forEach(revokeAssetPreviewUrl);
         return snapshot.assets;
@@ -851,6 +883,7 @@ export default function BuyerShowAgentClient() {
     setSaveSkinAsFixed(false);
     setSaveUsageFeelAsFixed(false);
     assets.forEach(revokeAssetPreviewUrl);
+    pendingAssetUploadsRef.current.clear();
     setAssets([]);
     setSets(createClearedGenerationSets());
     setResults([]);
@@ -1010,21 +1043,12 @@ export default function BuyerShowAgentClient() {
 
     setGenerationError(undefined);
     try {
-      const nextAssets = await Promise.all(
-        files.map(async (file, index) => {
-          const uploaded = await uploadAssetToR2(type, file);
-          return {
-            id: `${type}-${Date.now()}-${index}`,
-            type,
-            name: file.name,
-            objectKey: uploaded.key,
-            previewUrl: URL.createObjectURL(uploaded.blob),
-            deletedAfterProcessing: false,
-          };
-        }),
-      );
-
-      setAssets((current) => [...current, ...nextAssets]);
+      files.forEach(validateUploadFile);
+      const optimisticAssets = files.map((file, index) => createOptimisticAsset(type, file, index));
+      setAssets((current) => [...current, ...optimisticAssets]);
+      optimisticAssets.forEach((asset, index) => {
+        startAssetUpload(asset, files[index]);
+      });
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : '图片上传失败');
     } finally {
@@ -1032,7 +1056,57 @@ export default function BuyerShowAgentClient() {
     }
   }
 
+  function startAssetUpload(asset: ClientUploadedAsset, file: File) {
+    const uploadPromise = uploadAssetToR2(asset.type, file)
+      .then((uploaded): AssetUploadCompletion => {
+        setAssets((current) =>
+          current.map((item) =>
+            item.id === asset.id
+              ? { ...item, objectKey: uploaded.key, uploadStatus: 'uploaded', uploadError: undefined }
+              : item,
+          ),
+        );
+        return { objectKey: uploaded.key };
+      })
+      .catch((error): AssetUploadCompletion => {
+        const message = error instanceof Error ? error.message : '图片上传失败';
+        setAssets((current) =>
+          current.map((item) => (item.id === asset.id ? { ...item, uploadStatus: 'failed', uploadError: message } : item)),
+        );
+        return { error: message };
+      });
+
+    pendingAssetUploadsRef.current.set(asset.id, uploadPromise);
+    return uploadPromise;
+  }
+
+  async function ensureAssetsUploaded(targetAssets: ClientUploadedAsset[]) {
+    return Promise.all(
+      targetAssets.map(async (asset) => {
+        if (asset.objectKey) return asset;
+
+        const pendingUpload = pendingAssetUploadsRef.current.get(asset.id);
+        if (!pendingUpload) {
+          throw new Error(asset.uploadError || `${asset.name} 还没有完成上传，请稍后重试`);
+        }
+
+        const uploaded = await pendingUpload;
+        if (uploaded.error || !uploaded.objectKey) {
+          throw new Error(uploaded.error || `${asset.name} 上传失败，请重新选择图片`);
+        }
+
+        return {
+          ...asset,
+          objectKey: uploaded.objectKey,
+          uploadStatus: 'uploaded' as const,
+          uploadError: undefined,
+        };
+      }),
+    );
+  }
+
   function removeAsset(assetId: string) {
+    pendingAssetUploadsRef.current.delete(assetId);
     setAssets((current) => {
       const asset = current.find((item) => item.id === assetId);
       if (asset) revokeAssetPreviewUrl(asset);
@@ -1116,6 +1190,8 @@ export default function BuyerShowAgentClient() {
 
     try {
       const generationSets = sets.map((set, index) => ({ ...set, name: getSuiteDisplayName(index) }));
+      const uploadedAssets = await ensureAssetsUploaded(assets);
+      if (generationRequestIdRef.current !== requestId) return;
       const response = await postJson<
         { ok: true; jobId: string; job: BuyerShowGenerationJob } | { ok: false; error: string }
       >(
@@ -1123,7 +1199,7 @@ export default function BuyerShowAgentClient() {
         {
           historyId,
           productInfo: currentProductInfo,
-          assets: assets.map(toAssetPayload),
+          assets: uploadedAssets.map(toAssetPayload),
           generationSets,
         },
       );
@@ -1226,6 +1302,7 @@ export default function BuyerShowAgentClient() {
     setGenerationError(undefined);
     const personEthnicity = sets.find((set) => set.id === setId)?.personEthnicity ?? defaultPersonEthnicity;
     try {
+      const uploadedAssets = await ensureAssetsUploaded(assets);
       const response = await postJson<
         | { ok: true; image: { url?: string; b64Json?: string; localImageKey?: string; promptSnapshot?: string } }
         | { ok: false; error: string }
@@ -1233,8 +1310,8 @@ export default function BuyerShowAgentClient() {
         productInfo: currentProductInfo,
         imageType: image.type,
         personEthnicity,
-        imageUrls: getReferenceImageUrls(assets),
-        assets: assets.map(toAssetPayload),
+        imageUrls: getReferenceImageUrls(uploadedAssets),
+        assets: uploadedAssets.map(toAssetPayload),
       });
 
       if (!response.ok) throw new Error(response.error);

@@ -62,7 +62,7 @@ assert.ok(!clientSource.includes('response.json()'), 'API helper should not blin
 assert.ok(clientSource.includes('接口返回了 HTML 错误页'), 'API helper should show a clear message for HTML error pages');
 assert.ok(clientSource.includes('getReferenceImageUrls'), 'client should collect uploaded reference images for single-image regeneration');
 assert.ok(
-  clientSource.includes('assets: assets.map(toAssetPayload)'),
+  clientSource.includes('assets: uploadedAssets.map(toAssetPayload)'),
   'client should send compact uploaded asset payloads for server-side R2 read URL signing',
 );
 assert.ok(
