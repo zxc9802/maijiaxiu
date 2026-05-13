@@ -94,6 +94,17 @@ type BuyerShowHistoryItem = {
   expiresAt: string;
 };
 
+type BuyerShowGenerationJob = {
+  id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  productInfo?: ProductInfo;
+  results?: GeneratedResult[];
+  historyId?: string;
+  historyError?: string;
+  error?: string;
+};
+
 const storageKeys: Record<TagGroup, string> = {
   claims: 'buyerShow.fixedTags.claims',
   skinTypes: 'buyerShow.fixedTags.skinTypes',
@@ -543,6 +554,19 @@ function replaceFileExtension(fileName: string, extension: string) {
   return `${cleanName.replace(/\.[^.]+$/, '')}.${extension}`;
 }
 
+function waitForNextPoll(milliseconds: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
+function getGenerationJobMessage(job: BuyerShowGenerationJob) {
+  if (job.status === 'queued') return '生成任务已提交，正在排队...';
+  if (job.status === 'processing') return `后台生成中 ${Math.max(5, Math.min(99, job.progress))}%`;
+  if (job.status === 'completed') return '生成完成，正在整理结果...';
+  return '生成失败';
+}
+
 async function uploadAssetToR2(type: UploadedAssetType, file: File) {
   const prepared = await prepareImageForUpload(file);
   const response = await postJson<SignedAssetUpload | AssetUploadError>('/api/buyer-show/assets/sign-upload', {
@@ -596,6 +620,7 @@ export default function BuyerShowAgentClient() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | undefined>();
+  const [generationStatus, setGenerationStatus] = useState<string | undefined>();
   const [previewImage, setPreviewImage] = useState<GeneratedImage | undefined>();
   const [snapshotStatus, setSnapshotStatus] = useState<string | undefined>();
   const generationRequestIdRef = useRef(0);
@@ -1065,11 +1090,12 @@ export default function BuyerShowAgentClient() {
     generationRequestIdRef.current = requestId;
     setIsGenerating(true);
     setGenerationError(undefined);
+    setGenerationStatus('生成任务已提交，正在创建后台任务...');
 
     try {
       const generationSets = sets.map((set, index) => ({ ...set, name: getSuiteDisplayName(index) }));
       const response = await postJson<
-        { ok: true; productInfo?: ProductInfo; results: GeneratedResult[]; historyId?: string; historyError?: string } | { ok: false; error: string }
+        { ok: true; jobId: string; job: BuyerShowGenerationJob } | { ok: false; error: string }
       >(
         '/api/buyer-show/generate',
         {
@@ -1084,29 +1110,62 @@ export default function BuyerShowAgentClient() {
         throw new Error(response.error);
       }
 
+      setGenerationStatus(getGenerationJobMessage(response.job));
+      const completedJob = await pollGenerationJob(response.jobId, requestId);
       if (generationRequestIdRef.current !== requestId) return;
 
-      if (response.productInfo) {
-        applyProductInfo(response.productInfo);
+      if (completedJob.productInfo) {
+        applyProductInfo(completedJob.productInfo);
       }
-      setResults(response.results);
-      setHistoryId(response.historyId);
-      if (response.historyError) {
+      setResults(completedJob.results ?? []);
+      setHistoryId(completedJob.historyId);
+      if (completedJob.historyError) {
         setSnapshotStatus('生成完成，云端历史暂未保存');
-      } else if (response.historyId) {
+      } else if (completedJob.historyId) {
         setSnapshotStatus('生成完成，云端历史已保存');
         void loadHistoryItems();
       }
-      void runComplianceChecks(response.results, requestId);
+      setGenerationStatus(undefined);
+      void runComplianceChecks(completedJob.results ?? [], requestId);
     } catch (error) {
       if (generationRequestIdRef.current === requestId) {
         setGenerationError(error instanceof Error ? error.message : '生成失败，请稍后重试');
+        setGenerationStatus(undefined);
       }
     } finally {
       if (generationRequestIdRef.current === requestId) {
         setIsGenerating(false);
       }
     }
+  }
+
+  async function pollGenerationJob(jobId: string, requestId: number): Promise<BuyerShowGenerationJob> {
+    let attempt = 0;
+
+    while (generationRequestIdRef.current === requestId) {
+      const response = await getJson<{ ok: true; job: BuyerShowGenerationJob } | { ok: false; error: string }>(
+        `/api/buyer-show/generate/${encodeURIComponent(jobId)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(response.error);
+      }
+
+      setGenerationStatus(getGenerationJobMessage(response.job));
+
+      if (response.job.status === 'completed') {
+        return response.job;
+      }
+
+      if (response.job.status === 'failed') {
+        throw new Error(response.job.error || '生成失败，请稍后重试');
+      }
+
+      attempt += 1;
+      await waitForNextPoll(Math.min(3000, 1000 + attempt * 250));
+    }
+
+    throw new Error('生成任务已取消');
   }
 
   async function regenerateComment(resultId: string, comment: GeneratedComment) {
@@ -1605,6 +1664,7 @@ export default function BuyerShowAgentClient() {
               <p className={styles.kicker}>Step 4 of 4</p>
               <h2>生成结果</h2>
               <p className={styles.subtle}>按套件展示缩略图、各语言评论文本、合规状态。自检只做提示，不强制拦截。</p>
+              {generationStatus ? <p className={styles.progressText}>{generationStatus}</p> : null}
               {generationError ? <p className={styles.errorText}>生成接口返回：{generationError}</p> : null}
             </div>
             <div className={styles.resultList}>

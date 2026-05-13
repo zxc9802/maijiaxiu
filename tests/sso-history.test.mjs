@@ -12,6 +12,7 @@ const historyRouteSource = readFileSync(resolve('app/api/buyer-show/history/rout
 const historyDetailRouteSource = readFileSync(resolve('app/api/buyer-show/history/[id]/route.ts'), 'utf8');
 const sessionRouteSource = readFileSync(resolve('app/api/session/route.ts'), 'utf8');
 const generateRouteSource = readFileSync(resolve('app/api/buyer-show/generate/route.ts'), 'utf8');
+const generationJobStoreSource = readFileSync(resolve('lib/buyer-show/generation-job-store.ts'), 'utf8');
 const clientSource = readFileSync(resolve('app/buyer-show/BuyerShowAgentClient.tsx'), 'utf8');
 
 assert.ok(packageJson.dependencies['@prisma/client'], 'buyer-show should depend on Prisma client');
@@ -49,8 +50,9 @@ assert.match(historyDetailRouteSource, /PATCH/);
 assert.match(historyDetailRouteSource, /DELETE/);
 
 assert.match(generateRouteSource, /readCurrentBuyerShowUser/);
-assert.match(generateRouteSource, /upsertBuyerShowHistory/);
+assert.match(generateRouteSource, /createBuyerShowGenerationJob/);
 assert.match(generateRouteSource, /historyId/);
+assert.match(generationJobStoreSource, /upsertBuyerShowHistory/);
 
 assert.match(clientSource, /historyId/);
 assert.match(clientSource, /loadHistoryItems/);

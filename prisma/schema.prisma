@@ -28,3 +28,25 @@ model BuyerShowHistory {
   @@index([deletedAt])
   @@map("buyer_show_histories")
 }
+
+model BuyerShowGenerationJob {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  userSnapshot Json      @map("user_snapshot")
+  historyId    String?   @map("history_id")
+  request      Json
+  status       String    @default("queued")
+  progress     Int       @default(0)
+  productInfo  Json?     @map("product_info")
+  results      Json?
+  error        String?
+  historyError String?   @map("history_error")
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("buyer_show_generation_jobs")
+}
