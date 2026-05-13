@@ -46,6 +46,10 @@ for (const text of ['type="file"', 'handleAssetUpload', 'downloadImage', 'update
 
 assert.ok(clientSource.includes('getSuiteDisplayName(index)'), 'suite cards should render simple sequential names');
 assert.ok(!clientSource.includes('套件：{set.name}'), 'suite cards should not render descriptive set names in the header');
+assert.ok(!clientSource.includes('当前项目'), 'sidebar should not render the current project card');
+assert.ok(!clientSource.includes('商品 ID: BS-2026-0512'), 'sidebar should not render the fixed product id');
+assert.ok(!html.includes('当前项目'), 'static prototype should not render the current project card');
+assert.ok(!html.includes('商品 ID: BS-2026-0512'), 'static prototype should not render the fixed product id');
 
 assert.ok(cssSource.includes('.field input:not([type="checkbox"])'), 'form input styles should not stretch tag checkboxes');
 assert.ok(cssSource.includes('.customTagRow > input'), 'custom tag input styles should not stretch the save checkbox');

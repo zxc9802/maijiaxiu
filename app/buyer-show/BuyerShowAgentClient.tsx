@@ -1054,11 +1054,6 @@ export default function BuyerShowAgentClient() {
           </div>
         </div>
 
-        <div className={styles.projectCard}>
-          <h2>当前项目</h2>
-          <p className={styles.subtle}>商品 ID: BS-2026-0512</p>
-        </div>
-
         <nav className={styles.nav}>
           <a href="#upload">上传素材</a>
           <a href="#product-info">商品信息</a>
