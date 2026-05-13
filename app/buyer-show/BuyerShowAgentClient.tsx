@@ -468,6 +468,28 @@ function imageDownloadName(image: GeneratedImage) {
   return `${image.type}-${image.id}.png`;
 }
 
+function createImageDownloadUrl(href: string, filename: string) {
+  if (!href.startsWith('http://') && !href.startsWith('https://')) return href;
+
+  const searchParams = new URLSearchParams({
+    filename,
+    url: href,
+  });
+
+  return `/api/buyer-show/images/download?${searchParams.toString()}`;
+}
+
+function triggerImageDownload(href: string, filename: string) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = filename;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 function getSuiteDisplayName(index: number) {
   return `套件${index + 1}`;
 }
@@ -1302,17 +1324,34 @@ export default function BuyerShowAgentClient() {
     );
   }
 
-  function downloadImage(image: GeneratedImage) {
+  async function downloadImage(image: GeneratedImage) {
     const href = getImageSource(image);
     if (!href) {
       setGenerationError('这张图还没有可下载的真实图片地址');
       return;
     }
 
-    const link = document.createElement('a');
-    link.href = href;
-    link.download = imageDownloadName(image);
-    link.click();
+    const filename = imageDownloadName(image);
+    const downloadUrl = createImageDownloadUrl(href, filename);
+    setGenerationError(undefined);
+
+    if (downloadUrl === href) {
+      triggerImageDownload(downloadUrl, filename);
+      return;
+    }
+
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error('图片下载失败，请稍后重试');
+      }
+
+      const blobUrl = URL.createObjectURL(await response.blob());
+      triggerImageDownload(blobUrl, filename);
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : '图片下载失败，请稍后重试');
+    }
   }
 
   function applyProductInfo(productInfo: ProductInfo) {
@@ -1678,30 +1717,16 @@ export default function BuyerShowAgentClient() {
                     key={result.id}
                   >
                   {result.mode !== 'comment_only' ? (
-                    <div>
-                      {result.images[0] ? (
+                    <div className={styles.smallThumbs}>
+                      {result.images.map((image) => (
                         <ResultImageFrame
-                          image={result.images[0]}
-                          onDownload={() => downloadImage(result.images[0])}
-                          onPreview={() => setPreviewImage(result.images[0])}
-                          onRegenerate={() => regenerateImage(result.id, result.setId, result.images[0])}
-                          variant="hero"
+                          image={image}
+                          key={image.id}
+                          onDownload={() => downloadImage(image)}
+                          onPreview={() => setPreviewImage(image)}
+                          onRegenerate={() => regenerateImage(result.id, result.setId, image)}
                         />
-                      ) : null}
-                      {result.images.length > 1 ? (
-                        <div className={styles.smallThumbs}>
-                          {result.images.slice(1).map((image) => (
-                            <ResultImageFrame
-                              image={image}
-                              key={image.id}
-                              onDownload={() => downloadImage(image)}
-                              onPreview={() => setPreviewImage(image)}
-                              onRegenerate={() => regenerateImage(result.id, result.setId, image)}
-                              variant="small"
-                            />
-                          ))}
-                        </div>
-                      ) : null}
+                      ))}
                     </div>
                   ) : null}
                   <div className={styles.resultContent}>
@@ -1852,18 +1877,16 @@ function ResultImageFrame({
   onDownload,
   onPreview,
   onRegenerate,
-  variant,
 }: {
   image: GeneratedImage;
   onDownload: () => void;
   onPreview: () => void;
   onRegenerate: () => void;
-  variant: 'hero' | 'small';
 }) {
   const imageSource = getImageSource(image);
 
   return (
-    <div className={variant === 'hero' ? styles.heroImage : styles.smallThumb}>
+    <div className={styles.smallThumb}>
       <button className={styles.imagePreviewButton} onClick={onPreview} type="button">
         {imageSource ? <img alt={imageTypeLabels[image.type]} src={imageSource} /> : <span>{imageTypeLabels[image.type]}</span>}
       </button>

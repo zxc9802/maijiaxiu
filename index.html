@@ -889,43 +889,6 @@
       gap: 10px;
     }
 
-    .hero-image {
-      min-height: 210px;
-      position: relative;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background:
-        radial-gradient(circle at 24% 20%, rgba(255, 219, 205, 0.92), transparent 30%),
-        linear-gradient(145deg, #dcecff, #fef7f4);
-    }
-
-    .hero-image::before {
-      content: "";
-      position: absolute;
-      width: 72px;
-      height: 136px;
-      left: 118px;
-      top: 36px;
-      border-radius: 12px;
-      border: 1px solid rgba(0, 74, 198, 0.26);
-      background: rgba(255, 255, 255, 0.78);
-      box-shadow: 0 16px 32px rgba(24, 39, 75, 0.12);
-      transform: rotate(-7deg);
-    }
-
-    .hero-image::after {
-      content: "";
-      position: absolute;
-      width: 148px;
-      height: 56px;
-      right: -14px;
-      bottom: 26px;
-      border-radius: 999px;
-      background: rgba(188, 72, 0, 0.24);
-      transform: rotate(-13deg);
-    }
-
     .image-action {
       position: absolute;
       right: 10px;
@@ -945,6 +908,7 @@
     }
 
     .small-thumbs {
+      align-self: start;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
@@ -952,7 +916,8 @@
 
     .small-thumb {
       position: relative;
-      min-height: 84px;
+      aspect-ratio: 1 / 1;
+      min-height: 0;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       overflow: hidden;
@@ -1698,17 +1663,17 @@
           <div class="result-list">
             <article class="result-card">
               <div class="media-grid">
-                <div class="hero-image" role="button" aria-label="点击放大预览">
-                  <button class="image-action" data-action="regenerate-single-image">
-                    <span class="material-symbols-outlined">refresh</span>
-                    重生成单图
-                  </button>
-                </div>
                 <div class="small-thumbs">
-                  <div class="small-thumb">
+                  <div class="small-thumb" role="button" aria-label="点击放大预览">
+                    <button class="image-action" data-action="regenerate-single-image">
+                      <span class="material-symbols-outlined">refresh</span>
+                      重生成单图
+                    </button>
+                  </div>
+                  <div class="small-thumb" role="button" aria-label="点击放大预览">
                     <button class="image-action" data-action="regenerate-single-image">重生成单图</button>
                   </div>
-                  <div class="small-thumb">
+                  <div class="small-thumb" role="button" aria-label="点击放大预览">
                     <button class="image-action" data-action="regenerate-single-image">重生成单图</button>
                   </div>
                   <div class="small-thumb" role="button" aria-label="点击放大预览更多图片"></div>
@@ -1812,11 +1777,13 @@
 
             <article class="result-card">
               <div class="media-grid">
-                <div class="hero-image" role="button" aria-label="点击放大预览">
-                  <button class="image-action" data-action="regenerate-single-image">
-                    <span class="material-symbols-outlined">refresh</span>
-                    重生成单图
-                  </button>
+                <div class="small-thumbs">
+                  <div class="small-thumb" role="button" aria-label="点击放大预览">
+                    <button class="image-action" data-action="regenerate-single-image">
+                      <span class="material-symbols-outlined">refresh</span>
+                      重生成单图
+                    </button>
+                  </div>
                 </div>
               </div>
               <div class="result-content">

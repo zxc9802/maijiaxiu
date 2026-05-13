@@ -6,6 +6,11 @@ export const providerConfig = {
   imageApiKey: process.env.YUNWU_IMAGE_API_KEY,
   imageModel: process.env.YUNWU_IMAGE_MODEL ?? 'gpt-image-2-all',
   imageSize: process.env.YUNWU_IMAGE_SIZE ?? '1152x2048',
+  xaiImageBaseUrl: process.env.XAI_IMAGE_BASE_URL ?? 'https://api-xai.ainaibahub.com/v1',
+  xaiImageApiKey: process.env.XAI_IMAGE_API_KEY,
+  xaiImageModel: process.env.XAI_IMAGE_MODEL ?? 'gpt-image-2',
+  xaiImageSize: process.env.XAI_IMAGE_SIZE ?? '1024x1024',
+  xaiImageQuality: process.env.XAI_IMAGE_QUALITY ?? 'high',
 };
 
 export function requireProviderSecret(value: string | undefined, name: string) {

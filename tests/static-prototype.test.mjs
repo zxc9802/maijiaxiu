@@ -86,6 +86,12 @@ assert.ok(cssSource.includes('min-width: 116px'), 'selectable chips should be a 
 assert.ok(clientSource.includes('list="buyer-show-category-suggestions"'), 'category field should expose quick suggestions');
 assert.ok(clientSource.includes('normalizeCategoryForProductInfo(category)'), 'category input should normalize blank text for API payloads');
 assert.ok(!clientSource.includes('<select onChange={(event) => setCategory'), 'category field should be a free-text input, not a fixed select');
+assert.ok(
+  clientSource.includes('{result.images.map((image) => ('),
+  'result cards should render every generated image through the compact thumbnail grid',
+);
+assert.ok(!clientSource.includes('variant="hero"'), 'result cards should not render a large first-image hero preview');
+assert.ok(!clientSource.includes('result.images.slice(1)'), 'result thumbnails should not split the first image from the rest');
 
 for (const text of ['评论生成规则', 'sourceBar', 'sourceChipActive']) {
   assert.ok(!clientSource.includes(text), `BuyerShowAgentClient should not render ${text}`);
