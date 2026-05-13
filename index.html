@@ -1,0 +1,2168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>买家秀智能体</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..600,0..1,0&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --background: #f8f9ff;
+      --surface: #ffffff;
+      --surface-low: #eef4ff;
+      --surface-mid: #e5eeff;
+      --surface-high: #d8e7ff;
+      --ink: #0b1c30;
+      --ink-muted: #445160;
+      --ink-soft: #687486;
+      --line: #c8d2e1;
+      --line-soft: #dfe7f2;
+      --primary: #004ac6;
+      --primary-hover: #003ea8;
+      --secondary: #4b41e1;
+      --teal: #047c84;
+      --teal-soft: #dff4f2;
+      --rose: #ba1a1a;
+      --rose-soft: #ffdad6;
+      --amber: #8a5a00;
+      --amber-soft: #fff0c2;
+      --green: #1e7a4d;
+      --green-soft: #dcf5e8;
+      --orange: #bc4800;
+      --orange-soft: #ffdbcd;
+      --shadow: 0 10px 26px rgba(24, 39, 75, 0.08);
+      --shadow-soft: 0 2px 10px rgba(24, 39, 75, 0.06);
+      --radius: 8px;
+      --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--ink);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .material-symbols-outlined {
+      font-family: "Material Symbols Outlined";
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: "liga";
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 20px 16px;
+      background: var(--surface-low);
+      border-right: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 8px 0;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius);
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary), var(--teal));
+      box-shadow: 0 10px 22px rgba(0, 74, 198, 0.18);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 800;
+    }
+
+    .brand-subtitle {
+      margin-top: 2px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .project-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .project-card h2 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      line-height: 22px;
+    }
+
+    .project-card p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .step-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .step-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--ink-muted);
+      text-align: left;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .step-link:hover,
+    .step-link.active {
+      background: var(--surface-high);
+      color: var(--primary);
+    }
+
+    .summary {
+      margin-top: auto;
+      display: grid;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .summary-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .summary-row strong {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      height: 64px;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(248, 249, 255, 0.9);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 28px;
+    }
+
+    .topbar p {
+      margin: 1px 0 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button,
+    .ghost-button,
+    .primary-button,
+    .secondary-button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .icon-button {
+      width: 38px;
+      padding: 0;
+      color: var(--ink-muted);
+      background: var(--surface);
+      border-color: var(--line-soft);
+    }
+
+    .icon-button:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .ghost-button {
+      color: var(--ink-muted);
+      background: transparent;
+      border-color: var(--line);
+    }
+
+    .ghost-button:hover {
+      color: var(--primary);
+      background: var(--surface-low);
+    }
+
+    .secondary-button {
+      color: var(--primary);
+      background: var(--surface);
+      border-color: var(--line);
+    }
+
+    .secondary-button:hover {
+      border-color: var(--primary);
+    }
+
+    .primary-button {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .primary-button:hover {
+      background: var(--primary-hover);
+    }
+
+    .workspace {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 24px 28px 40px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      scroll-margin-top: 88px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .kicker {
+      margin: 0 0 4px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .section h2 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 32px;
+    }
+
+    .section-note {
+      margin: 4px 0 0;
+      max-width: 720px;
+      color: var(--ink-muted);
+      font-size: 14px;
+      line-height: 22px;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel,
+    .suite-card,
+    .result-card {
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 24px;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .upload-zone {
+      min-height: 158px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 8px;
+      padding: 18px;
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #fff, #f9fbff);
+      text-align: center;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--primary);
+      background: var(--surface-low);
+    }
+
+    .upload-zone .material-symbols-outlined {
+      color: var(--primary);
+      font-size: 30px;
+    }
+
+    .upload-zone strong {
+      font-size: 15px;
+      line-height: 22px;
+    }
+
+    .upload-zone span:last-child {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label,
+    .field-label {
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 11px;
+      outline: 0;
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 74, 198, 0.12);
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag-manager {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: #fbfcff;
+    }
+
+    .chip,
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line-soft);
+      padding: 6px 9px;
+      background: var(--surface);
+      color: var(--ink-muted);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .chip input {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      accent-color: var(--primary);
+    }
+
+    .chip.fixed-tag {
+      border-color: rgba(0, 74, 198, 0.18);
+      background: var(--surface-low);
+    }
+
+    .delete-tag-button {
+      width: 14px;
+      min-width: 14px;
+      height: 14px;
+      min-height: 14px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--primary);
+      background: var(--surface);
+      padding: 0;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .delete-tag-button:hover {
+      color: var(--rose);
+      border-color: var(--rose);
+      background: var(--rose-soft);
+    }
+
+    .tag-subhead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 800;
+    }
+
+    .tag-subhead span {
+      color: var(--ink);
+    }
+
+    .custom-tag-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .save-fixed-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink-muted);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .save-fixed-toggle input {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      accent-color: var(--primary);
+    }
+
+    .empty-fixed-tags {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .source-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: #f9fbff;
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 6px 9px;
+      color: var(--ink-muted);
+      background: #fff;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 800;
+    }
+
+    .source-chip.active {
+      color: var(--primary);
+      border-color: rgba(0, 74, 198, 0.26);
+      background: var(--surface-mid);
+    }
+
+    .source-chip code {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .assistant-panel {
+      position: sticky;
+      top: 88px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .insight {
+      display: grid;
+      gap: 9px;
+      padding: 14px;
+      border: 1px solid rgba(0, 74, 198, 0.18);
+      border-radius: var(--radius);
+      background: var(--surface-low);
+    }
+
+    .insight-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .detected-assets {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .asset-thumb {
+      aspect-ratio: 1;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(0, 74, 198, 0.16), transparent 45%),
+        linear-gradient(45deg, #f7d9c8, #dcecff);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .asset-thumb::before {
+      content: "";
+      position: absolute;
+      width: 32%;
+      height: 58%;
+      left: 36%;
+      top: 18%;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 74, 198, 0.26);
+      background: rgba(255, 255, 255, 0.72);
+      transform: rotate(-8deg);
+    }
+
+    .quality-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 12px;
+      border: 1px solid rgba(138, 90, 0, 0.22);
+      border-radius: var(--radius);
+      color: #5d4209;
+      background: var(--amber-soft);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .suite-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .suite-card {
+      overflow: hidden;
+    }
+
+    .suite-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line-soft);
+      background: var(--surface-low);
+    }
+
+    .suite-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 22px;
+    }
+
+    .suite-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mini-button {
+      width: 30px;
+      height: 30px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: var(--radius);
+      color: var(--ink-soft);
+      background: transparent;
+    }
+
+    .mini-button:hover {
+      color: var(--primary);
+      background: var(--surface);
+    }
+
+    .suite-body {
+      display: grid;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-low);
+    }
+
+    .segmented button {
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink-muted);
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .segmented button.active {
+      color: var(--primary);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .number-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 96px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .image-type-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .image-type {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) 88px;
+      gap: 9px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: #fbfcff;
+    }
+
+    .image-type > input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      accent-color: var(--primary);
+    }
+
+    .image-type-count {
+      display: grid;
+      gap: 4px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 800;
+    }
+
+    .image-type-count input {
+      padding: 8px 9px;
+    }
+
+    .image-type strong {
+      display: block;
+      font-size: 13px;
+      line-height: 18px;
+    }
+
+	    .image-type > span:not(.image-type-count),
+	    .image-type > span:not(.image-type-count) > span {
+	      display: block;
+	      margin-top: 2px;
+	      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .language-picker {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(0, 74, 198, 0.14);
+      border-radius: var(--radius);
+      background: #fbfcff;
+    }
+
+    .language-picker .chip {
+      background: #fff;
+    }
+
+    .language-summary {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .language-summary .material-symbols-outlined {
+      color: var(--primary);
+      font-size: 18px;
+      margin-top: 1px;
+    }
+
+    .field-hint {
+      margin: -2px 0 0;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .footer-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 28px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(248, 249, 255, 0.92);
+      backdrop-filter: blur(14px);
+    }
+
+    .footer-note {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .result-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-card {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 18px;
+      padding: 16px;
+    }
+
+    .result-card.comment-only {
+      grid-template-columns: 1fr;
+    }
+
+    .media-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .hero-image {
+      min-height: 210px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        radial-gradient(circle at 24% 20%, rgba(255, 219, 205, 0.92), transparent 30%),
+        linear-gradient(145deg, #dcecff, #fef7f4);
+    }
+
+    .hero-image::before {
+      content: "";
+      position: absolute;
+      width: 72px;
+      height: 136px;
+      left: 118px;
+      top: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 74, 198, 0.26);
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 16px 32px rgba(24, 39, 75, 0.12);
+      transform: rotate(-7deg);
+    }
+
+    .hero-image::after {
+      content: "";
+      position: absolute;
+      width: 148px;
+      height: 56px;
+      right: -14px;
+      bottom: 26px;
+      border-radius: 999px;
+      background: rgba(188, 72, 0, 0.24);
+      transform: rotate(-13deg);
+    }
+
+    .image-action {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      border-radius: var(--radius);
+      color: #fff;
+      background: rgba(11, 28, 48, 0.68);
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+    }
+
+    .small-thumbs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .small-thumb {
+      position: relative;
+      min-height: 84px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(4, 124, 132, 0.18), transparent 50%),
+        linear-gradient(45deg, #f8efe7, #e1ebff);
+    }
+
+    .small-thumb .image-action {
+      right: 6px;
+      bottom: 6px;
+      min-height: 28px;
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+
+    .result-content {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .result-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .result-head h3 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 27px;
+    }
+
+    .result-id {
+      margin: 2px 0 0;
+      color: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .status-chip.passed {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: rgba(30, 122, 77, 0.18);
+    }
+
+    .status-chip.checking {
+      color: #8a5a00;
+      background: #fff0c2;
+      border-color: rgba(138, 90, 0, 0.18);
+    }
+
+    .status-chip.review {
+      color: var(--rose);
+      background: var(--rose-soft);
+      border-color: rgba(186, 26, 26, 0.18);
+    }
+
+    .status-chip.comment-only {
+      color: var(--teal);
+      background: var(--teal-soft);
+      border-color: rgba(4, 124, 132, 0.2);
+    }
+
+    .comment-box {
+      display: grid;
+      gap: 7px;
+    }
+
+    .language-result-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .language-result {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: #fbfcff;
+    }
+
+    .language-result-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .language-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 8px;
+      color: var(--primary);
+      background: var(--surface-low);
+      border: 1px solid rgba(0, 74, 198, 0.16);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 16px;
+    }
+
+    .comment-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .compliance-box {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line-soft);
+      background: #fbfcff;
+      color: var(--ink-muted);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .compliance-box.warning {
+      background: rgba(255, 218, 214, 0.32);
+      border-color: rgba(186, 26, 26, 0.2);
+    }
+
+    .compliance-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .risk-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .suggestion {
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    .humanizer-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .humanizer-note a {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+
+    @media (max-width: 1180px) {
+      .layout-grid,
+      .result-card {
+        grid-template-columns: 1fr;
+      }
+
+      .assistant-panel {
+        position: static;
+      }
+
+      .suite-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 880px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+
+      .summary {
+        display: none;
+      }
+
+      .main {
+        min-height: 100vh;
+      }
+
+      .topbar {
+        height: auto;
+        padding: 16px;
+        align-items: flex-start;
+      }
+
+      .top-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .workspace {
+        padding: 18px 16px 32px;
+      }
+
+      .upload-grid,
+      .form-grid,
+      .custom-tag-row {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-bar {
+        position: static;
+        padding: 16px;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="买家秀智能体步骤导航">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span class="material-symbols-outlined">auto_awesome</span>
+        </div>
+        <div>
+          <div class="brand-title">买家秀智能体</div>
+          <div class="brand-subtitle">运营草稿生成工具</div>
+        </div>
+      </div>
+
+      <div class="project-card">
+        <h2>当前项目</h2>
+        <p>商品 ID: BS-2026-0512</p>
+      </div>
+
+      <nav class="step-nav">
+        <a class="step-link active" href="#upload">
+          <span class="material-symbols-outlined">upload_file</span>
+          上传素材
+        </a>
+        <a class="step-link" href="#product-info">
+          <span class="material-symbols-outlined">inventory_2</span>
+          商品信息
+        </a>
+        <a class="step-link" href="#sets">
+          <span class="material-symbols-outlined">settings_suggest</span>
+          配置套件
+        </a>
+        <a class="step-link" href="#results">
+          <span class="material-symbols-outlined">fact_check</span>
+          生成结果
+        </a>
+      </nav>
+
+      <div class="summary">
+        <div class="summary-title">
+          <span class="material-symbols-outlined">data_exploration</span>
+          当前摘要
+        </div>
+        <div class="summary-row"><span>产品</span><strong>焕颜修护晚霜</strong></div>
+        <div class="summary-row"><span>肤质</span><strong>干性 / 混合性</strong></div>
+        <div class="summary-row"><span>功效</span><strong>保湿、肤感柔滑</strong></div>
+        <div class="summary-row"><span>信息来源</span><strong>mixed</strong></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>买家秀智能体</h1>
+          <p>上传素材、补全商品信息、配置 A/B/C 套件并审核评论自检结果</p>
+        </div>
+        <div class="top-actions">
+          <button class="secondary-button" data-action="save-state">
+            <span class="material-symbols-outlined">save</span>
+            保存状态
+          </button>
+          <button class="secondary-button" data-action="load-state">
+            <span class="material-symbols-outlined">history</span>
+            载入状态
+          </button>
+          <button class="icon-button" title="通知" aria-label="通知">
+            <span class="material-symbols-outlined">notifications</span>
+          </button>
+          <button class="icon-button" title="帮助" aria-label="帮助">
+            <span class="material-symbols-outlined">help</span>
+          </button>
+          <button class="ghost-button">
+            <span class="material-symbols-outlined">logout</span>
+            退出
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <section class="section" id="upload">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Step 1 of 4</p>
+              <h2>上传素材</h2>
+              <p class="section-note">分区上传同一个商品的产品图、包装图、质地图；多张图用于帮助 AI 理解商品，不作为批量商品处理。</p>
+            </div>
+            <button class="secondary-button" data-action="save-state">
+              <span class="material-symbols-outlined">save</span>
+              保存状态
+            </button>
+          </div>
+
+          <div class="layout-grid">
+            <div class="panel">
+              <div class="panel-title">
+                <h3>素材分区</h3>
+                <span class="status-chip comment-only">本地浏览器优先保存</span>
+              </div>
+              <div class="upload-grid">
+                <button class="upload-zone" data-upload-type="product">
+                  <span class="material-symbols-outlined">deployed_code</span>
+                  <strong>产品图</strong>
+                  <span>瓶身、罐体、膏体外观，可单张或多张上传</span>
+                </button>
+                <button class="upload-zone" data-upload-type="package">
+                  <span class="material-symbols-outlined">package_2</span>
+                  <strong>包装图</strong>
+                  <span>正面、背面、侧面，辅助识别品牌和包装特征</span>
+                </button>
+                <button class="upload-zone" data-upload-type="texture">
+                  <span class="material-symbols-outlined">water_drop</span>
+                  <strong>质地图</strong>
+                  <span>上手、涂抹、膏体细节，影响图片和评论质感</span>
+                </button>
+              </div>
+            </div>
+
+            <aside class="assistant-panel">
+              <div class="panel">
+                <div class="panel-title">
+                  <h3>AI 识别摘要</h3>
+                  <span class="status-chip">ai_inferred</span>
+                </div>
+                <div class="insight">
+                  <div class="insight-title">
+                    <span class="material-symbols-outlined">model_training</span>
+                    自动补全候选
+                  </div>
+                  <div class="summary-row"><span>品类</span><strong>护肤 / 面霜</strong></div>
+                  <div class="summary-row"><span>质地</span><strong>水润乳霜感</strong></div>
+                  <div class="summary-row"><span>置信度</span><strong>94.2%</strong></div>
+                </div>
+                <div class="detected-assets" aria-label="已检测素材">
+                  <div class="asset-thumb" title="产品图"></div>
+                  <div class="asset-thumb" title="包装图"></div>
+                  <div class="asset-thumb" title="质地图"></div>
+                </div>
+                <div class="quality-note">
+                  <span class="material-symbols-outlined">warning</span>
+                  当前缺少真人持产品参考图，自拍持产品图将更多依赖提示词控制。
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="section" id="product-info">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Step 2 of 4</p>
+              <h2>商品信息</h2>
+              <p class="section-note">用户填写内容优先于 AI 推断。手动修改任何字段后，信息来源会从 ai_inferred 切换为 mixed。</p>
+            </div>
+          </div>
+
+          <div class="layout-grid">
+            <div class="panel">
+              <div class="panel-title">
+                <h3>填写与确认</h3>
+                <div class="source-bar" aria-label="商品信息来源">
+                  <span class="source-chip" data-info-source="manual"><code>manual</code> 手动</span>
+                  <span class="source-chip" data-info-source="ai_inferred"><code>ai_inferred</code> AI 推断</span>
+                  <span class="source-chip active" data-info-source="mixed"><code>mixed</code> 混合</span>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="field">
+                  <label for="productName">商品名称</label>
+                  <input id="productName" value="焕颜修护晚霜" aria-label="商品名称">
+                </div>
+                <div class="field">
+                  <label for="category">品类</label>
+                  <input id="category" list="buyer-show-category-suggestions" value="护肤 &gt; 保湿 &gt; 面霜" aria-label="品类">
+                  <datalist id="buyer-show-category-suggestions">
+                    <option value="护肤 &gt; 保湿 &gt; 面霜"></option>
+                    <option value="护肤 &gt; 精华"></option>
+                    <option value="美妆 &gt; 底妆"></option>
+                    <option value="个护 &gt; 洗护"></option>
+                    <option value="母婴 &gt; 湿巾"></option>
+                    <option value="未知/待识别"></option>
+                  </datalist>
+                </div>
+                <div class="field full">
+                  <span class="field-label">功效 / 重点卖点</span>
+                  <div class="tag-manager" data-tag-group="claims">
+                    <div class="tag-subhead"><span>预备选项</span>可直接勾选</div>
+                    <div class="chip-row" data-preset-tag-list="claims">
+                      <label class="chip"><input type="checkbox" checked> 补水保湿</label>
+                      <label class="chip"><input type="checkbox" checked> 吸收后不油亮</label>
+                      <label class="chip"><input type="checkbox"> 妆前不搓泥</label>
+                      <label class="chip"><input type="checkbox"> 香味清淡</label>
+                    </div>
+                    <div class="tag-subhead"><span>固定标签</span>每次打开都能一键选择</div>
+                    <div class="chip-row" data-fixed-tag-list="claims" aria-label="功效卖点固定标签"></div>
+                    <div class="custom-tag-row">
+                      <input data-custom-tag-input="claims" placeholder="自定义卖点，例如：熬夜后也不拔干" aria-label="自定义卖点">
+                      <label class="save-fixed-toggle"><input type="checkbox" data-save-fixed-toggle="claims" checked> 保存为固定标签</label>
+                      <button class="secondary-button" data-action="save-fixed-tag" data-target-tag-group="claims">
+                        <span class="material-symbols-outlined">add</span>
+                        添加
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="field full">
+                  <span class="field-label">适用肤质</span>
+                  <div class="tag-manager" data-tag-group="skin-types">
+                    <div class="tag-subhead"><span>预备选项</span>可直接勾选</div>
+                    <div class="chip-row" data-preset-tag-list="skin-types">
+                      <label class="chip"><input type="checkbox" checked> 干性</label>
+                      <label class="chip"><input type="checkbox" checked> 混合性</label>
+                      <label class="chip"><input type="checkbox"> 油性</label>
+                      <label class="chip"><input type="checkbox"> 敏感肌慎用</label>
+                    </div>
+                    <div class="tag-subhead"><span>固定标签</span>可删除不再常用的标签</div>
+                    <div class="chip-row" data-fixed-tag-list="skin-types" aria-label="适用肤质固定标签"></div>
+                    <div class="custom-tag-row">
+                      <input data-custom-tag-input="skin-types" placeholder="自定义肤质，例如：换季干敏" aria-label="自定义肤质">
+                      <label class="save-fixed-toggle"><input type="checkbox" data-save-fixed-toggle="skin-types" checked> 保存为固定标签</label>
+                      <button class="secondary-button" data-action="save-fixed-tag" data-target-tag-group="skin-types">
+                        <span class="material-symbols-outlined">add</span>
+                        添加
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="field full">
+                  <span class="field-label">使用感</span>
+                  <div class="tag-manager" data-tag-group="usage-feels">
+                    <div class="tag-subhead"><span>预备选项</span>可直接勾选</div>
+                    <div class="chip-row" data-preset-tag-list="usage-feels">
+                      <label class="chip"><input type="checkbox" checked> 水润乳霜感</label>
+                      <label class="chip"><input type="checkbox" checked> 推开不结块</label>
+                      <label class="chip"><input type="checkbox" checked> 吸收后有柔光感</label>
+                      <label class="chip"><input type="checkbox"> 不厚重</label>
+                    </div>
+                    <div class="tag-subhead"><span>固定标签</span>可删除不再常用的标签</div>
+                    <div class="chip-row" data-fixed-tag-list="usage-feels" aria-label="使用感固定标签"></div>
+                    <div class="custom-tag-row">
+                      <input data-custom-tag-input="usage-feels" placeholder="自定义使用感，例如：上脸有柔光感" aria-label="自定义使用感">
+                      <label class="save-fixed-toggle"><input type="checkbox" data-save-fixed-toggle="usage-feels" checked> 保存为固定标签</label>
+                      <button class="secondary-button" data-action="save-fixed-tag" data-target-tag-group="usage-feels">
+                        <span class="material-symbols-outlined">add</span>
+                        添加
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="field full">
+                  <label for="avoidTerms">避免表达</label>
+                  <input id="avoidTerms" value="医疗级治愈、永久修复、100% 有效、年轻十岁">
+                </div>
+              </div>
+            </div>
+
+            <aside class="assistant-panel">
+              <div class="panel">
+                <div class="panel-title">
+                  <h3>评论生成规则</h3>
+                  <span class="status-chip">真实素人</span>
+                </div>
+                <div class="humanizer-note">
+                  <span class="material-symbols-outlined">psychology</span>
+                  <div>
+                    评论参考 <a href="https://github.com/blader/humanizer">https://github.com/blader/humanizer</a> 的去 AI 味思路，避免广告腔、模板腔和夸张功效承诺。
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="section" id="sets">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Step 3 of 4</p>
+              <h2>配置套件</h2>
+              <p class="section-note">每个套件独立选择只生成评论，或生成 X图 + 多语言评论；图片类型和评论语言都由运营手动勾选。</p>
+            </div>
+            <button class="primary-button">
+              <span class="material-symbols-outlined">add</span>
+              添加套件
+            </button>
+          </div>
+
+          <div class="suite-grid">
+            <article class="suite-card">
+              <div class="suite-head">
+                <div class="suite-name">
+                  <span class="material-symbols-outlined">group</span>
+                  套件1
+                </div>
+                <div class="suite-actions">
+                  <button class="mini-button" title="复制套件" aria-label="复制套件"><span class="material-symbols-outlined">content_copy</span></button>
+                  <button class="mini-button" title="删除套件" aria-label="删除套件"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+              </div>
+              <div class="suite-body">
+                <div>
+                  <div class="field-label">输出模式</div>
+                  <div class="segmented" aria-label="套件1 输出模式">
+                    <button>只生成评论</button>
+                    <button class="active">X图 + 1评论</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">人种</div>
+                  <div class="language-picker" aria-label="套件1 人种">
+                    <div class="chip-row">
+                      <label class="chip" data-person-ethnicity="yellow"><input type="radio" name="set-a-person-ethnicity" checked> 黄种人</label>
+                      <label class="chip" data-person-ethnicity="white"><input type="radio" name="set-a-person-ethnicity"> 白种人</label>
+                      <label class="chip" data-person-ethnicity="black"><input type="radio" name="set-a-person-ethnicity"> 黑种人</label>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">评论语言</div>
+                  <div class="language-picker" data-language-selector="set-a">
+                    <div class="chip-row">
+                      <label class="chip" data-language-code="zh-CN"><input type="checkbox" checked> 中文</label>
+                      <label class="chip" data-language-code="en-US"><input type="checkbox" checked> English</label>
+                      <label class="chip" data-language-code="th-TH"><input type="checkbox"> ไทย</label>
+                      <label class="chip" data-language-code="ms-MY"><input type="checkbox"> Bahasa Melayu</label>
+                    </div>
+                    <div class="language-summary">
+                      <span class="material-symbols-outlined">translate</span>
+                      同图多语言评论：本套件将生成 3 张图 + 2 条评论，按语言分别自检。
+                    </div>
+                  </div>
+                </div>
+	                <div class="number-row">
+	                  <div>
+	                    <label for="setAImages">图片合计</label>
+	                    <input id="setAImages" value="共 3 张图" disabled>
+	                  </div>
+                  <div>
+                    <label for="setAComments">评论</label>
+                    <input id="setAComments" value="2" disabled>
+	                  </div>
+	                </div>
+	                <p class="field-hint">每个图片类型可单独设置张数。</p>
+	                <div>
+	                  <div class="field-label">每类生成数量</div>
+	                  <div class="image-type-list">
+	                    <div class="image-type" data-image-type="texture_on_hand">
+	                      <input type="checkbox" checked>
+	                      <span><strong>质地上手图</strong><span>膏体、涂抹、吸收后的近景</span></span>
+	                      <span class="image-type-count">张数<input type="number" min="0" max="6" value="1" aria-label="质地上手图张数"></span>
+	                    </div>
+	                    <div class="image-type" data-image-type="bathroom_vanity">
+	                      <input type="checkbox" checked>
+	                      <span><strong>浴室/化妆台场景图</strong><span>自然摆放，弱化广告感</span></span>
+	                      <span class="image-type-count">张数<input type="number" min="0" max="6" value="1" aria-label="浴室/化妆台场景图张数"></span>
+	                    </div>
+	                    <div class="image-type" data-image-type="handheld_product_closeup">
+	                      <input type="checkbox">
+	                      <span><strong>手持商品特写图</strong><span>手拿产品近景，突出包装正面</span></span>
+	                      <span class="image-type-count">张数<input type="number" min="0" max="6" value="0" aria-label="手持商品特写图张数"></span>
+	                    </div>
+	                    <div class="image-type" data-image-type="selfie_holding_product">
+	                      <input type="checkbox" checked>
+	                      <span><strong>真人自拍持产品图</strong><span>MVP 支持完整人脸出镜</span></span>
+	                      <span class="image-type-count">张数<input type="number" min="0" max="6" value="1" aria-label="真人自拍持产品图张数"></span>
+	                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="suite-card">
+              <div class="suite-head">
+                <div class="suite-name">
+                  <span class="material-symbols-outlined">chat_bubble</span>
+                  套件2
+                </div>
+                <div class="suite-actions">
+                  <button class="mini-button" title="复制套件" aria-label="复制套件"><span class="material-symbols-outlined">content_copy</span></button>
+                  <button class="mini-button" title="删除套件" aria-label="删除套件"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+              </div>
+              <div class="suite-body">
+                <div>
+                  <div class="field-label">输出模式</div>
+                  <div class="segmented" aria-label="套件2 输出模式">
+                    <button class="active">只生成评论</button>
+                    <button>X图 + 1评论</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">人种</div>
+                  <div class="language-picker" aria-label="套件2 人种">
+                    <div class="chip-row">
+                      <label class="chip" data-person-ethnicity="yellow"><input type="radio" name="set-b-person-ethnicity" checked> 黄种人</label>
+                      <label class="chip" data-person-ethnicity="white"><input type="radio" name="set-b-person-ethnicity"> 白种人</label>
+                      <label class="chip" data-person-ethnicity="black"><input type="radio" name="set-b-person-ethnicity"> 黑种人</label>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">评论语言</div>
+                  <div class="language-picker" data-language-selector="set-b">
+                    <div class="chip-row">
+                      <label class="chip" data-language-code="zh-CN"><input type="checkbox" checked> 中文</label>
+                      <label class="chip" data-language-code="en-US"><input type="checkbox"> English</label>
+                      <label class="chip" data-language-code="th-TH"><input type="checkbox"> ไทย</label>
+                      <label class="chip" data-language-code="ms-MY"><input type="checkbox"> Bahasa Melayu</label>
+                    </div>
+                    <div class="language-summary">
+                      <span class="material-symbols-outlined">translate</span>
+                      只评论模式不会重复生成图片，只按所选语言生成评论。
+                    </div>
+                  </div>
+                </div>
+	                <div class="number-row">
+	                  <div>
+	                    <label for="setBImages">图片合计</label>
+	                    <input id="setBImages" value="共 0 张图" disabled>
+	                  </div>
+                  <div>
+                    <label for="setBComments">评论</label>
+                    <input id="setBComments" value="1" disabled>
+                  </div>
+                </div>
+                <div class="compliance-box">
+                  <div class="compliance-title">
+                    <span class="material-symbols-outlined">info</span>
+                    仅返回评论文本和评论自检，不显示图片下载入口。
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="suite-card">
+              <div class="suite-head">
+                <div class="suite-name">
+                  <span class="material-symbols-outlined">person_raised_hand</span>
+                  套件3
+                </div>
+                <div class="suite-actions">
+                  <button class="mini-button" title="复制套件" aria-label="复制套件"><span class="material-symbols-outlined">content_copy</span></button>
+                  <button class="mini-button" title="删除套件" aria-label="删除套件"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+              </div>
+              <div class="suite-body">
+                <div>
+                  <div class="field-label">输出模式</div>
+                  <div class="segmented" aria-label="套件3 输出模式">
+                    <button>只生成评论</button>
+                    <button class="active">X图 + 1评论</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">人种</div>
+                  <div class="language-picker" aria-label="套件3 人种">
+                    <div class="chip-row">
+                      <label class="chip" data-person-ethnicity="yellow"><input type="radio" name="set-c-person-ethnicity" checked> 黄种人</label>
+                      <label class="chip" data-person-ethnicity="white"><input type="radio" name="set-c-person-ethnicity"> 白种人</label>
+                      <label class="chip" data-person-ethnicity="black"><input type="radio" name="set-c-person-ethnicity"> 黑种人</label>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="field-label">评论语言</div>
+                  <div class="language-picker" data-language-selector="set-c">
+                    <div class="chip-row">
+                      <label class="chip" data-language-code="zh-CN"><input type="checkbox"> 中文</label>
+                      <label class="chip" data-language-code="en-US"><input type="checkbox"> English</label>
+                      <label class="chip" data-language-code="th-TH"><input type="checkbox" checked> ไทย</label>
+                      <label class="chip" data-language-code="ms-MY"><input type="checkbox" checked> Bahasa Melayu</label>
+                    </div>
+                    <div class="language-summary">
+                      <span class="material-symbols-outlined">translate</span>
+                      东南亚市场套件示例：同一张自拍图，生成泰语和马来语评论。
+                    </div>
+                  </div>
+                </div>
+	                <div class="number-row">
+	                  <div>
+	                    <label for="setCImages">图片合计</label>
+	                    <input id="setCImages" value="共 1 张图" disabled>
+	                  </div>
+                  <div>
+                    <label for="setCComments">评论</label>
+                    <input id="setCComments" value="2" disabled>
+	                  </div>
+	                </div>
+	                <p class="field-hint">每个图片类型可单独设置张数。</p>
+	                <div class="image-type-list">
+	                  <div class="image-type" data-image-type="selfie_holding_product">
+	                    <input type="checkbox" checked>
+	                    <span><strong>真人自拍持产品图</strong><span>完整人脸出镜，允许单张重生成</span></span>
+	                    <span class="image-type-count">张数<input type="number" min="0" max="6" value="1" aria-label="真人自拍持产品图张数"></span>
+	                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="results">
+          <div class="section-header">
+            <div>
+              <p class="kicker">Step 4 of 4</p>
+              <h2>生成结果</h2>
+              <p class="section-note">按套件展示缩略图、各语言评论文本、合规状态。自检只做提示，不强制拦截，运营最终判断。</p>
+            </div>
+          </div>
+
+          <div class="result-list">
+            <article class="result-card">
+              <div class="media-grid">
+                <div class="hero-image" role="button" aria-label="点击放大预览">
+                  <button class="image-action" data-action="regenerate-single-image">
+                    <span class="material-symbols-outlined">refresh</span>
+                    重生成单图
+                  </button>
+                </div>
+                <div class="small-thumbs">
+                  <div class="small-thumb">
+                    <button class="image-action" data-action="regenerate-single-image">重生成单图</button>
+                  </div>
+                  <div class="small-thumb">
+                    <button class="image-action" data-action="regenerate-single-image">重生成单图</button>
+                  </div>
+                  <div class="small-thumb" role="button" aria-label="点击放大预览更多图片"></div>
+                </div>
+              </div>
+              <div class="result-content">
+                <div class="result-head">
+                  <div>
+                    <h3>套件1</h3>
+                    <p class="result-id">ID: GEN-0512-A</p>
+                  </div>
+                  <span class="status-chip passed"><span class="material-symbols-outlined">check_circle</span>合规通过</span>
+                  <span class="status-chip checking"><span class="material-symbols-outlined">hourglass_top</span>审核中</span>
+                </div>
+                <div class="language-result-list">
+                  <div class="language-result" data-result-language="zh-CN">
+                    <div class="language-result-head">
+                      <span class="language-badge">中文</span>
+                      <span class="status-chip passed"><span class="material-symbols-outlined">check_circle</span>通过</span>
+                    </div>
+                    <div class="comment-box">
+                      <div class="comment-label">
+                        <label for="commentAzh">生成评论</label>
+                        <button class="icon-button" title="复制评论" aria-label="复制评论" data-action="copy-comment">
+                          <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                      </div>
+                      <textarea id="commentAzh" rows="4">包装挺清爽的，拿在手里不廉价。质地是那种水润一点的乳霜感，推开不会一坨一坨的，吸收完脸上有点柔光，不是油亮。</textarea>
+                    </div>
+                    <div class="compliance-box">
+                      <div class="compliance-title"><span class="material-symbols-outlined">policy</span>按语言分别自检</div>
+                      中文评论未发现明显高风险表达，仍需运营发布前人工确认。
+                    </div>
+                  </div>
+                  <div class="language-result" data-result-language="en-US">
+                    <div class="language-result-head">
+                      <span class="language-badge">English</span>
+                      <span class="status-chip passed"><span class="material-symbols-outlined">check_circle</span>Passed</span>
+                    </div>
+                    <div class="comment-box">
+                      <div class="comment-label">
+                        <label for="commentAen">Generated comment</label>
+                        <button class="icon-button" title="复制评论" aria-label="复制评论" data-action="copy-comment">
+                          <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                      </div>
+                      <textarea id="commentAen" rows="4">The jar feels clean and not cheap in hand. The cream has a light watery texture, spreads without clumping, and leaves a soft glow after it sinks in.</textarea>
+                    </div>
+                    <div class="compliance-box">
+                      <div class="compliance-title"><span class="material-symbols-outlined">policy</span>按语言分别自检</div>
+                      English copy avoids exaggerated efficacy claims.
+                    </div>
+                  </div>
+                </div>
+                <div class="result-actions">
+                  <button class="secondary-button" data-action="copy-comment"><span class="material-symbols-outlined">content_copy</span>复制评论</button>
+                  <button class="secondary-button"><span class="material-symbols-outlined">download</span>下载图片</button>
+                  <button class="secondary-button"><span class="material-symbols-outlined">edit_note</span>重生成评论</button>
+                  <button class="secondary-button" data-action="recheck-comment"><span class="material-symbols-outlined">fact_check</span>手动修改后重新审查</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="result-card comment-only" data-result-mode="comment_only">
+              <div class="result-content">
+                <div class="result-head">
+                  <div>
+                    <h3>套件2</h3>
+                    <p class="result-id">ID: GEN-0512-B</p>
+                  </div>
+                  <span class="status-chip comment-only"><span class="material-symbols-outlined">chat_bubble</span>只生成评论</span>
+                </div>
+                <div class="language-result-list">
+                  <div class="language-result" data-result-language="zh-CN">
+                    <div class="language-result-head">
+                      <span class="language-badge">中文</span>
+                      <span class="status-chip passed"><span class="material-symbols-outlined">check_circle</span>通过</span>
+                    </div>
+                    <div class="comment-box">
+                      <div class="comment-label">
+                        <label for="commentBzh">生成评论</label>
+                        <button class="icon-button" title="复制评论" aria-label="复制评论" data-action="copy-comment">
+                          <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                      </div>
+                      <textarea id="commentBzh" rows="4">这支面霜我更喜欢晚上用，抹开之后不是那种厚重封住脸的感觉。第二天早上起来脸摸着软一点，但也没有夸张到立刻变细腻，整体是比较稳的保湿款。</textarea>
+                    </div>
+                    <div class="compliance-box">
+                      <div class="compliance-title"><span class="material-symbols-outlined">policy</span>按语言分别自检</div>
+                      语气自然，未检测到绝对化功效承诺。
+                    </div>
+                  </div>
+                </div>
+                <div class="result-actions">
+                  <button class="secondary-button" data-action="copy-comment"><span class="material-symbols-outlined">content_copy</span>复制评论</button>
+                  <button class="secondary-button"><span class="material-symbols-outlined">edit_note</span>重生成评论</button>
+                  <button class="secondary-button" data-action="recheck-comment"><span class="material-symbols-outlined">fact_check</span>重新审查</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="result-card">
+              <div class="media-grid">
+                <div class="hero-image" role="button" aria-label="点击放大预览">
+                  <button class="image-action" data-action="regenerate-single-image">
+                    <span class="material-symbols-outlined">refresh</span>
+                    重生成单图
+                  </button>
+                </div>
+              </div>
+              <div class="result-content">
+                <div class="result-head">
+                  <div>
+                    <h3>套件3</h3>
+                    <p class="result-id">ID: GEN-0512-C</p>
+                  </div>
+                  <span class="status-chip review"><span class="material-symbols-outlined">warning</span>需人工判断</span>
+                </div>
+                <div class="language-result-list">
+                  <div class="language-result" data-result-language="th-TH">
+                    <div class="language-result-head">
+                      <span class="language-badge">ไทย</span>
+                      <span class="status-chip passed"><span class="material-symbols-outlined">check_circle</span>ผ่าน</span>
+                    </div>
+                    <div class="comment-box">
+                      <div class="comment-label">
+                        <label for="commentCth">รีวิวที่สร้าง</label>
+                        <button class="icon-button" title="复制评论" aria-label="复制评论" data-action="copy-comment">
+                          <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                      </div>
+                      <textarea id="commentCth" rows="4">เนื้อครีมเกลี่ยง่ายกว่าที่คิด ไม่ได้หนักหน้ามาก หลังทาแล้วผิวดูนุ่มขึ้นนิดหน่อย เหมาะกับวันที่ผิวแห้งๆ ตอนกลางคืน</textarea>
+                    </div>
+                    <div class="compliance-box">
+                      <div class="compliance-title"><span class="material-symbols-outlined">policy</span>按语言分别自检</div>
+                      泰语评论未检测到绝对化功效承诺。
+                    </div>
+                  </div>
+                  <div class="language-result" data-result-language="ms-MY">
+                    <div class="language-result-head">
+                      <span class="language-badge">Bahasa Melayu</span>
+                      <span class="status-chip review"><span class="material-symbols-outlined">warning</span>Semak</span>
+                    </div>
+                    <div class="comment-box">
+                      <div class="comment-label">
+                        <label for="commentCms">Komen dijana</label>
+                        <button class="icon-button" title="复制评论" aria-label="复制评论" data-action="copy-comment">
+                          <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                      </div>
+                      <textarea id="commentCms" rows="4">Krim ini buat kulit nampak muda sepuluh tahun dan garis halus terus hilang selepas sekali pakai.</textarea>
+                    </div>
+                    <div class="compliance-box warning">
+                      <div class="compliance-title"><span class="material-symbols-outlined">policy</span>检测到评论风险</div>
+                      <ul class="risk-list">
+                        <li>“muda sepuluh tahun”属于夸张功效表达。</li>
+                        <li>“terus hilang selepas sekali pakai”缺少素材或商品信息支撑。</li>
+                      </ul>
+                      <div class="suggestion">
+                        <strong>改写建议：</strong>Teksturnya senang diratakan dan lebih sesuai dipakai waktu malam. Esok pagi kulit rasa sedikit lebih lembut, tapi kesannya masih perlu dilihat ikut keadaan kulit masing-masing.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="result-actions">
+                  <button class="secondary-button" data-action="copy-comment"><span class="material-symbols-outlined">content_copy</span>复制评论</button>
+                  <button class="secondary-button"><span class="material-symbols-outlined">download</span>下载图片</button>
+                  <button class="secondary-button"><span class="material-symbols-outlined">edit_note</span>重生成评论</button>
+                  <button class="primary-button" data-action="recheck-comment"><span class="material-symbols-outlined">fact_check</span>应用建议并重新审查</button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <footer class="footer-bar">
+        <div class="footer-note">3 个套件：套件1 生成 3 张图 + 中英 2 条评论，套件2 只生成中文评论，套件3 生成 1 张图 + 泰语/马来语 2 条评论。</div>
+        <div class="top-actions">
+          <button class="ghost-button">
+            <span class="material-symbols-outlined">delete</span>
+            删除草稿
+          </button>
+          <button class="primary-button">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            开始生成
+          </button>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const navLinks = document.querySelectorAll(".step-link");
+    navLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        navLinks.forEach((item) => item.classList.remove("active"));
+        link.classList.add("active");
+      });
+    });
+
+    document.querySelectorAll(".upload-zone").forEach((zone) => {
+      zone.addEventListener("click", () => {
+        const previous = zone.querySelector(".upload-count");
+        if (previous) previous.remove();
+        const badge = document.createElement("span");
+        badge.className = "status-chip upload-count";
+        badge.textContent = "已选择 2 张";
+        zone.appendChild(badge);
+      });
+    });
+
+    const markProductInfoMixed = () => {
+      document.querySelectorAll(".source-chip").forEach((chip) => chip.classList.remove("active"));
+      document.querySelector('[data-info-source="mixed"]').classList.add("active");
+    };
+
+    const tagStorageKeys = {
+      claims: "buyerShow.fixedTags.claims",
+      "skin-types": "buyerShow.fixedTags.skinTypes",
+      "usage-feels": "buyerShow.fixedTags.usageFeels",
+    };
+
+    const defaultFixedTags = {
+      claims: ["熬夜后也不拔干", "后续叠防晒不搓泥"],
+      "skin-types": ["换季干敏", "屏障偏弱"],
+      "usage-feels": ["吸收后有柔光感", "不黏枕头"],
+    };
+
+    const stateStorageKey = "buyerShow.savedState.v1";
+
+    const capturePrototypeState = () => ({
+      version: 1,
+      savedAt: new Date().toISOString(),
+      controls: Array.from(document.querySelectorAll("input, select, textarea")).map((control) => ({
+        selector: control.id ? `#${control.id}` : control.name ? `[name="${control.name}"]` : null,
+        type: control.type,
+        value: control.value,
+        checked: control.checked,
+      })),
+      uploadCounts: Array.from(document.querySelectorAll(".upload-zone")).map((zone) => ({
+        type: zone.dataset.uploadType,
+        countText: zone.querySelector(".upload-count")?.textContent || "",
+      })),
+      resultText: Array.from(document.querySelectorAll(".result-card textarea")).map((textarea) => textarea.value),
+    });
+
+    const restorePrototypeState = (snapshot) => {
+      if (!snapshot || snapshot.version !== 1) return;
+      snapshot.controls.forEach((item) => {
+        if (!item.selector) return;
+        const control = document.querySelector(item.selector);
+        if (!control) return;
+        if (control.type === "checkbox") control.checked = item.checked;
+        else control.value = item.value;
+      });
+      snapshot.uploadCounts.forEach((item) => {
+        const zone = document.querySelector(`[data-upload-type="${item.type}"]`);
+        if (!zone || !item.countText) return;
+        const previous = zone.querySelector(".upload-count");
+        if (previous) previous.remove();
+        const badge = document.createElement("span");
+        badge.className = "status-chip upload-count";
+        badge.textContent = item.countText;
+        zone.appendChild(badge);
+      });
+      document.querySelectorAll(".result-card textarea").forEach((textarea, index) => {
+        if (snapshot.resultText[index]) textarea.value = snapshot.resultText[index];
+      });
+    };
+
+    const readFixedTags = (group) => {
+      const key = tagStorageKeys[group];
+      const stored = localStorage.getItem(key);
+      if (stored === null) return defaultFixedTags[group] || [];
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    };
+
+    const saveFixedTags = (group, tags) => {
+      localStorage.setItem(tagStorageKeys[group], JSON.stringify(tags));
+    };
+
+    const createSelectableTag = (group, text, isFixed = false) => {
+      const label = document.createElement("label");
+      label.className = isFixed ? "chip fixed-tag" : "chip";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = true;
+      checkbox.addEventListener("change", markProductInfoMixed);
+      label.append(checkbox, ` ${text}`);
+
+      if (isFixed) {
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "delete-tag-button";
+        deleteButton.type = "button";
+        deleteButton.dataset.action = "delete-fixed-tag";
+        deleteButton.dataset.targetTagGroup = group;
+        deleteButton.dataset.tagValue = text;
+        deleteButton.title = `删除固定标签：${text}`;
+        deleteButton.setAttribute("aria-label", `删除固定标签：${text}`);
+        deleteButton.textContent = "×";
+        label.append(deleteButton);
+      }
+
+      return label;
+    };
+
+    const renderFixedTags = (group) => {
+      const container = document.querySelector(`[data-fixed-tag-list="${group}"]`);
+      if (!container) return;
+      container.innerHTML = "";
+      const tags = readFixedTags(group);
+      if (!tags.length) {
+        const empty = document.createElement("span");
+        empty.className = "empty-fixed-tags";
+        empty.textContent = "暂无固定标签，可从下方自定义添加。";
+        container.append(empty);
+        return;
+      }
+      tags.forEach((tag) => container.append(createSelectableTag(group, tag, true)));
+    };
+
+    const addCustomTag = (group) => {
+      const input = document.querySelector(`[data-custom-tag-input="${group}"]`);
+      const toggle = document.querySelector(`[data-save-fixed-toggle="${group}"]`);
+      const presetList = document.querySelector(`[data-preset-tag-list="${group}"]`);
+      const value = input ? input.value.trim() : "";
+      if (!value || !presetList) return;
+
+      presetList.append(createSelectableTag(group, value, false));
+
+      if (toggle && toggle.checked) {
+        const tags = readFixedTags(group);
+        if (!tags.includes(value)) {
+          tags.push(value);
+          saveFixedTags(group, tags);
+        }
+        renderFixedTags(group);
+      }
+
+      input.value = "";
+      markProductInfoMixed();
+    };
+
+    document.querySelectorAll("[data-tag-group]").forEach((manager) => {
+      renderFixedTags(manager.dataset.tagGroup);
+    });
+
+    document.querySelectorAll("[data-action='save-fixed-tag']").forEach((button) => {
+      button.addEventListener("click", () => addCustomTag(button.dataset.targetTagGroup));
+    });
+
+    document.querySelectorAll("[data-action='save-state']").forEach((button) => {
+      button.addEventListener("click", () => {
+        localStorage.setItem(stateStorageKey, JSON.stringify(capturePrototypeState()));
+        button.textContent = "已保存状态";
+      });
+    });
+
+    document.querySelectorAll("[data-action='load-state']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const raw = localStorage.getItem(stateStorageKey);
+        if (!raw) {
+          button.textContent = "暂无状态";
+          return;
+        }
+        try {
+          restorePrototypeState(JSON.parse(raw));
+          button.textContent = "已载入状态";
+        } catch {
+          button.textContent = "载入失败";
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-custom-tag-input]").forEach((input) => {
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addCustomTag(input.dataset.customTagInput);
+        }
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      const deleteButton = event.target.closest("[data-action='delete-fixed-tag']");
+      if (!deleteButton) return;
+      const group = deleteButton.dataset.targetTagGroup;
+      const tagValue = deleteButton.dataset.tagValue;
+      const tags = readFixedTags(group).filter((tag) => tag !== tagValue);
+      saveFixedTags(group, tags);
+      renderFixedTags(group);
+      markProductInfoMixed();
+    });
+
+    document.querySelectorAll("#product-info input, #product-info select").forEach((control) => {
+      control.addEventListener("input", markProductInfoMixed);
+      control.addEventListener("change", markProductInfoMixed);
+    });
+
+    document.querySelectorAll("[data-action='copy-comment']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const card = button.closest(".result-card");
+        const textarea = card ? card.querySelector("textarea") : null;
+        if (!textarea) return;
+        try {
+          await navigator.clipboard.writeText(textarea.value);
+          button.classList.add("primary-button");
+          button.classList.remove("secondary-button");
+        } catch {
+          textarea.select();
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-action='recheck-comment']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const card = button.closest(".result-card");
+        const status = card ? card.querySelector(".status-chip") : null;
+        if (status) {
+          status.className = "status-chip passed";
+          status.innerHTML = '<span class="material-symbols-outlined">check_circle</span>已重新审查';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
