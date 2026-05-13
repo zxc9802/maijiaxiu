@@ -55,6 +55,7 @@ for (const text of [
 
 for (const text of [
   'buildSeasonClimatePromptGuidance',
+  'buildPersonGenderPromptGuidance',
   'buildPromptFusionGuidance',
   'spring_autumn',
   'summer',
@@ -68,6 +69,8 @@ for (const text of [
   'rainy season weather',
   'Prompt fusion rule',
   'Image exposure rule: product-only placement images use scene, season, weather, light, and surface details only; do not apply person clothing or facial guidance.',
+  'Selected customer gender: adult woman',
+  'Selected customer gender: adult man',
   'For Muslim profiles in summer or tropical humidity, use modest lightweight breathable long-sleeve clothing',
   'thin everyday hijab or tudung when a woman is visible',
   'For winter, use heavier everyday layers',
@@ -153,6 +156,40 @@ const asianProfilePrompt = buildImagePrompt(
   'spring_autumn',
 );
 assertIncludesAll(asianProfilePrompt, ['East Asian customer', 'Chinese, Korean, or Japanese appearance range', 'dark eyes', 'black or dark brown hair']);
+
+const femaleSelfiePrompt = buildImagePrompt(
+  productInfo,
+  'selfie_holding_product',
+  'southeast_asia_asian',
+  'living_room',
+  'spring_autumn',
+  0,
+  'female',
+);
+assertIncludesAll(femaleSelfiePrompt, ['Selected customer gender: adult woman', 'visible hands, face, body shape, hair, and clothing should read naturally feminine']);
+
+const maleHandheldPrompt = buildImagePrompt(
+  productInfo,
+  'handheld_product_closeup',
+  'muslim_asian',
+  'living_room',
+  'summer',
+  0,
+  'male',
+);
+assertIncludesAll(maleHandheldPrompt, ['Selected customer gender: adult man', 'visible hands, wrist, arms, face, body shape, hair, and clothing should read naturally masculine']);
+assertExcludesAll(maleHandheldPrompt, ['thin everyday hijab or tudung when a woman is visible']);
+
+const productOnlyGenderPrompt = buildImagePrompt(
+  productInfo,
+  'bathroom_vanity',
+  'southeast_asia_asian',
+  'living_room',
+  'summer',
+  0,
+  'male',
+);
+assertExcludesAll(productOnlyGenderPrompt, ['Selected customer gender', 'adult man', 'adult woman', 'naturally masculine', 'naturally feminine']);
 
 for (const sceneElement of ['unboxing', 'living_room', 'sofa', 'dressing_table', 'southeast_asia_seaside', 'southeast_asia_city']) {
   const productOnlyPrompt = buildImagePrompt(productInfo, 'bathroom_vanity', 'southeast_asia_asian', sceneElement, 'summer');

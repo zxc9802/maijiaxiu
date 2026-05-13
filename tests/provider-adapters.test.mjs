@@ -74,8 +74,11 @@ assert.ok(generationService.includes('subtle jpeg compression'), 'image prompts 
 assert.ok(generationService.includes('Negative prompt'), 'image prompts should explicitly suppress common AI-rendered artifacts');
 assert.ok(generationService.includes('warm ceiling lamp light'), 'image prompts should include scene-specific lighting templates');
 assert.ok(generationService.includes('buildPersonProfilePromptGuidance'), 'image prompts should include suite person profile guidance');
+assert.ok(generationService.includes('buildPersonGenderPromptGuidance'), 'image prompts should include suite person gender guidance');
 assert.ok(generationService.includes('buildSeasonClimatePromptGuidance'), 'image prompts should include suite season climate guidance');
 assert.ok(generationService.includes('buildPromptFusionGuidance'), 'image prompts should fuse person profile, season, scene, and image type guidance');
+assert.ok(generationService.includes('Selected customer gender: adult woman'), 'female gender should guide visible customer appearance');
+assert.ok(generationService.includes('Selected customer gender: adult man'), 'male gender should guide visible customer appearance');
 assert.ok(generationService.includes('Black Muslim customer'), 'Muslim Black profile should guide visible customer appearance and modest styling');
 assert.ok(generationService.includes('Asian Muslim customer'), 'Muslim Asian profile should guide visible customer appearance and modest styling');
 assert.ok(generationService.includes('East Asian customer'), 'Asian profile should guide East Asian visible customer appearance');
@@ -85,4 +88,5 @@ assert.ok(generationService.includes('Southeast Asian Malay, Indonesian, Thai, V
 assert.ok(generationService.includes('white/Caucasian customer'), 'white profile should guide visible skin and customer appearance');
 assert.ok(regenerateImageRoute.includes('buildImagePrompt'), 'single-image regeneration should reuse the main buyer-show image prompt builder');
 assert.ok(regenerateImageRoute.includes('personProfile'), 'single-image regeneration should accept suite person profile');
+assert.ok(regenerateImageRoute.includes('personGender'), 'single-image regeneration should accept suite person gender');
 assert.ok(regenerateImageRoute.includes('seasonClimate'), 'single-image regeneration should accept suite season climate');

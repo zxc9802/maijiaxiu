@@ -5,6 +5,7 @@ import { buildImagePrompt, resolveUploadedAssetImageUrls } from '@/lib/buyer-sho
 import { generateBuyerShowImage } from '@/lib/buyer-show/image-provider';
 import {
   imageTypeSchema,
+  personGenderSchema,
   personProfileSchema,
   productInfoSchema,
   sceneElementSchema,
@@ -16,6 +17,7 @@ const regenerateImageSchema = z.object({
   productInfo: productInfoSchema,
   imageType: imageTypeSchema,
   personProfile: personProfileSchema.default('southeast_asia_asian'),
+  personGender: personGenderSchema.default('female'),
   sceneElement: sceneElementSchema.default('dressing_table'),
   seasonClimate: seasonClimateSchema.default('spring_autumn'),
   imageUrls: z.array(z.string()).default([]),
@@ -31,7 +33,15 @@ export async function POST(request: Request) {
     const image = await generateBuyerShowImage({
       imageType: input.imageType,
       imageUrls,
-      prompt: buildImagePrompt(input.productInfo, input.imageType, input.personProfile, input.sceneElement, input.seasonClimate),
+      prompt: buildImagePrompt(
+        input.productInfo,
+        input.imageType,
+        input.personProfile,
+        input.sceneElement,
+        input.seasonClimate,
+        0,
+        input.personGender,
+      ),
     });
     return NextResponse.json({ ok: true, image });
   } catch (error) {

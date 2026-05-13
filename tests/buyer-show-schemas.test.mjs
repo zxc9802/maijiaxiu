@@ -20,12 +20,15 @@ const expectedTexts = [
   'ai_inferred',
   'mixed',
   'personProfile',
+  'personGender',
   'muslim_black',
   'muslim_asian',
   'asian',
   'southeast_asia_deep',
   'southeast_asia_asian',
   'white',
+  'female',
+  'male',
   'seasonClimate',
   'spring_autumn',
   'summer',
@@ -50,6 +53,9 @@ assert.match(schemaSource, /export const supportedLanguages/, 'schemas.ts should
 assert.match(schemaSource, /export const personProfileSchema/, 'schemas.ts should export personProfileSchema');
 assert.match(schemaSource, /personProfileSchema\s*=\s*z\.enum\(\[[^\]]*'asian'/, 'personProfileSchema should include the standalone Asian profile');
 assert.match(schemaSource, /export type PersonProfile/, 'schemas.ts should export PersonProfile');
+assert.match(schemaSource, /export const personGenderSchema/, 'schemas.ts should export personGenderSchema');
+assert.match(schemaSource, /personGenderSchema\s*=\s*z\.enum\(\['female',\s*'male'\]\)/, 'personGenderSchema should support female and male');
+assert.match(schemaSource, /export type PersonGender/, 'schemas.ts should export PersonGender');
 assert.match(schemaSource, /legacyPersonEthnicityToProfile/, 'schemas.ts should map legacy ethnicity values into person profiles');
 assert.match(schemaSource, /export const seasonClimateSchema/, 'schemas.ts should export seasonClimateSchema');
 assert.match(schemaSource, /export type SeasonClimate/, 'schemas.ts should export SeasonClimate');
@@ -60,6 +66,11 @@ assert.match(
   schemaSource,
   /personProfile:\s*personProfileSchema\.default\('southeast_asia_asian'\)/,
   'generation sets should default person profile to Southeast Asian Asian',
+);
+assert.match(
+  schemaSource,
+  /personGender:\s*personGenderSchema\.default\('female'\)/,
+  'generation sets should default person gender to female',
 );
 assert.match(
   schemaSource,
@@ -91,6 +102,7 @@ const defaultSetBlocks = schemaSource.match(/id: 'set-[a]'[\s\S]*?commentCount: 
 assert.equal(defaultSetBlocks.length, 1, 'default generation sets should include one set block');
 for (const block of defaultSetBlocks) {
   assert.ok(block.includes("personProfile: 'southeast_asia_asian'"), 'each default generation set should default to Southeast Asian Asian profile');
+  assert.ok(block.includes("personGender: 'female'"), 'each default generation set should default to female gender');
   assert.ok(block.includes("seasonClimate: 'spring_autumn'"), 'each default generation set should default to spring/autumn climate');
   assert.ok(block.includes("sceneElements: ['dressing_table']"), 'each default generation set should default to dressing table scene');
 }

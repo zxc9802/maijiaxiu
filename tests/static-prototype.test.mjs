@@ -27,6 +27,10 @@ for (const text of ['人物画像', '穆斯林黑人', '穆斯林亚洲人', '�
   assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite person profile selector marker ${text}`);
 }
 
+for (const text of ['性别', '女性', '男性', 'personGender', 'updateSetPersonGender']) {
+  assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite gender selector marker ${text}`);
+}
+
 for (const text of ['季节气候', '春秋', '夏季', '冬季', '热带湿热', '雨季', 'seasonClimate', 'updateSetSeasonClimate']) {
   assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite season climate selector marker ${text}`);
 }
@@ -99,6 +103,10 @@ assert.ok(
   clientSource.includes("const defaultPersonProfile: PersonProfile = 'southeast_asia_asian'"),
   'new and migrated generation suites should default person profile to Southeast Asian Asian',
 );
+assert.ok(
+  clientSource.includes("const defaultPersonGender: PersonGender = 'female'"),
+  'new and migrated generation suites should default person gender to female',
+);
 assert.ok(clientSource.includes('setResults([])'), 'new project should clear generated results');
 assert.ok(clientSource.includes('setSaveClaimAsFixed(false)'), 'new project should clear the claim fixed-tag toggle');
 assert.ok(clientSource.includes('setSaveSkinAsFixed(false)'), 'new project should clear the skin fixed-tag toggle');
@@ -149,6 +157,9 @@ const requiredText = [
   '东南亚深肤',
   '东南亚亚洲人',
   '白人',
+  '性别',
+  '女性',
+  '男性',
   '季节气候',
   '春秋',
   '夏季',
@@ -219,6 +230,8 @@ const requiredPatterns = [
   [/data-person-profile="southeast_asia_deep"/, 'prototype should include Southeast Asian deep-skin profile option'],
   [/data-person-profile="southeast_asia_asian"/, 'prototype should include Southeast Asian Asian profile option'],
   [/data-person-profile="white"/, 'prototype should include white profile option'],
+  [/data-person-gender="female"/, 'prototype should include female gender option'],
+  [/data-person-gender="male"/, 'prototype should include male gender option'],
   [/data-season-climate="spring_autumn"/, 'prototype should include spring/autumn season climate option'],
   [/data-season-climate="summer"/, 'prototype should include summer season climate option'],
   [/data-season-climate="winter"/, 'prototype should include winter season climate option'],

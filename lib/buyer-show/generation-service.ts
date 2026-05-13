@@ -10,6 +10,7 @@ import {
   type GenerateRequest,
   type ImageType,
   type LanguageCode,
+  type PersonGender,
   type PersonProfile,
   type ProductInfo,
   type SeasonClimate,
@@ -51,7 +52,15 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
         set.mode === 'image_with_comment'
           ? Promise.all(
               imageRequestsToGenerate.map(async ({ type, sceneElement }, index) => {
-                const prompt = buildImagePrompt(productInfo, type, set.personProfile, sceneElement, set.seasonClimate, setIndex + index);
+                const prompt = buildImagePrompt(
+                  productInfo,
+                  type,
+                  set.personProfile,
+                  sceneElement,
+                  set.seasonClimate,
+                  setIndex + index,
+                  set.personGender,
+                );
                 const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
                 return {
                   id: `${set.id}-image-${index + 1}`,
@@ -305,6 +314,7 @@ export function buildImagePrompt(
   sceneElement: SceneElement = 'dressing_table',
   seasonClimate: SeasonClimate = 'spring_autumn',
   poseSeed = 0,
+  personGender: PersonGender = 'female',
 ) {
   const typeInstruction: Record<ImageType, string> = {
     texture_on_hand:
@@ -322,8 +332,9 @@ export function buildImagePrompt(
   const effectiveSeasonClimate = resolveEffectiveSeasonClimate(sceneElement, seasonClimate);
 
   const personProfileGuidance = imageType === 'bathroom_vanity' ? '' : buildPersonProfilePromptGuidance(personProfile);
+  const personGenderGuidance = imageType === 'bathroom_vanity' ? '' : buildPersonGenderPromptGuidance(personGender);
   const seasonClimateGuidance = buildSeasonClimatePromptGuidance(effectiveSeasonClimate, sceneElement, seasonClimate);
-  const promptFusionGuidance = buildPromptFusionGuidance(imageType, personProfile, sceneElement, effectiveSeasonClimate);
+  const promptFusionGuidance = buildPromptFusionGuidance(imageType, personProfile, personGender, sceneElement, effectiveSeasonClimate);
   const realismDetailsGuidance = buildRealismDetailsGuidance(imageType);
   const poseVariantGuidance = buildPoseVariantPromptGuidance(imageType, poseSeed);
 
@@ -333,6 +344,7 @@ export function buildImagePrompt(
     sceneElementInstruction,
     seasonClimateGuidance,
     personProfileGuidance,
+    personGenderGuidance,
     promptFusionGuidance,
     poseVariantGuidance,
     'Overall style: casual buyer-show photo, unposed natural posture, slightly imperfect composition, authentic customer review photo.',
@@ -469,6 +481,17 @@ function buildPersonProfilePromptGuidance(personProfile: PersonProfile) {
   return guidance[personProfile];
 }
 
+function buildPersonGenderPromptGuidance(personGender: PersonGender) {
+  const guidance: Record<PersonGender, string> = {
+    female:
+      'Selected customer gender: adult woman. When a person or body part is visible, visible hands, face, body shape, hair, and clothing should read naturally feminine while staying casual and realistic; never portray a child or teenager.',
+    male:
+      'Selected customer gender: adult man. When a person or body part is visible, visible hands, wrist, arms, face, body shape, hair, and clothing should read naturally masculine while staying casual and realistic; never portray a child or teenager.',
+  };
+
+  return guidance[personGender];
+}
+
 function buildPoseVariantPromptGuidance(imageType: ImageType, poseSeed: number) {
   if (imageType !== 'selfie_holding_product') return '';
 
@@ -512,7 +535,13 @@ function buildSeasonClimatePromptGuidance(seasonClimate: SeasonClimate, sceneEle
   return guidance[seasonClimate];
 }
 
-function buildPromptFusionGuidance(imageType: ImageType, personProfile: PersonProfile, sceneElement: SceneElement, seasonClimate: SeasonClimate) {
+function buildPromptFusionGuidance(
+  imageType: ImageType,
+  personProfile: PersonProfile,
+  personGender: PersonGender,
+  sceneElement: SceneElement,
+  seasonClimate: SeasonClimate,
+) {
   const guidance = [
     'Prompt fusion rule: image type decides how much of the person appears; scene chooses location and props; season/climate controls clothing thickness, fabric weight, skin shine, weather cues, and light; person profile controls visible appearance and cultural styling only when people or body parts are visible.',
     imageType === 'bathroom_vanity'
@@ -523,9 +552,25 @@ function buildPromptFusionGuidance(imageType: ImageType, personProfile: PersonPr
   const isMuslimProfile = personProfile === 'muslim_black' || personProfile === 'muslim_asian';
   const isTropicalScene = isTropicalSceneElement(sceneElement);
 
-  if (imageType !== 'bathroom_vanity' && isMuslimProfile && (seasonClimate === 'summer' || seasonClimate === 'tropical_humid')) {
+  if (
+    imageType !== 'bathroom_vanity' &&
+    isMuslimProfile &&
+    personGender === 'female' &&
+    (seasonClimate === 'summer' || seasonClimate === 'tropical_humid')
+  ) {
     guidance.push(
       'For Muslim profiles in summer or tropical humidity, use modest lightweight breathable long-sleeve clothing, loose cotton or linen layers, and a thin everyday hijab or tudung when a woman is visible.',
+    );
+  }
+
+  if (
+    imageType !== 'bathroom_vanity' &&
+    isMuslimProfile &&
+    personGender === 'male' &&
+    (seasonClimate === 'summer' || seasonClimate === 'tropical_humid')
+  ) {
+    guidance.push(
+      'For male Muslim profiles in summer or tropical humidity, use modest lightweight breathable menswear such as a simple long-sleeve shirt or loose cotton layers; keep styling everyday and non-ceremonial.',
     );
   }
 

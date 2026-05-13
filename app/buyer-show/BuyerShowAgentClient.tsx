@@ -13,6 +13,7 @@ import {
   type ImageType,
   type ImageTypeCounts,
   type LanguageCode,
+  type PersonGender,
   type PersonProfile,
   type ProductCategory,
   type ProductInfo,
@@ -33,6 +34,7 @@ const languageLabelSmoke = ['中文', 'English', 'ไทย', 'Bahasa Melayu'];
 const categorySuggestions = ['护肤 > 保湿 > 面霜', '护肤 > 精华', '美妆 > 底妆', '个护 > 洗护', '母婴 > 湿巾'];
 const pendingCategoryLabels = new Set(['unknown', '未知/待识别']);
 const defaultPersonProfile: PersonProfile = 'southeast_asia_asian';
+const defaultPersonGender: PersonGender = 'female';
 const defaultSeasonClimate: SeasonClimate = 'spring_autumn';
 const defaultSceneElements: SceneElement[] = ['dressing_table'];
 const personProfileLabels: Record<PersonProfile, string> = {
@@ -42,6 +44,10 @@ const personProfileLabels: Record<PersonProfile, string> = {
   southeast_asia_deep: '东南亚深肤',
   southeast_asia_asian: '东南亚亚洲人',
   white: '白人',
+};
+const personGenderLabels: Record<PersonGender, string> = {
+  female: '女性',
+  male: '男性',
 };
 const seasonClimateLabels: Record<SeasonClimate, string> = {
   spring_autumn: '春秋',
@@ -255,6 +261,7 @@ function cloneGenerationSets(sets: GenerationSet[] = defaultGenerationSets): Gen
   return sets.map((set) => ({
     ...set,
     personProfile: set.personProfile ?? defaultPersonProfile,
+    personGender: set.personGender ?? defaultPersonGender,
     seasonClimate: set.seasonClimate ?? defaultSeasonClimate,
     sceneElements: set.sceneElements?.length ? [...set.sceneElements] : [...defaultSceneElements],
     imageTypeCounts: cloneImageTypeCounts(set.imageTypeCounts),
@@ -268,6 +275,7 @@ function createClearedGenerationSets(): GenerationSet[] {
     name: getSuiteDisplayName(index),
     mode: 'comment_only',
     personProfile: defaultPersonProfile,
+    personGender: defaultPersonGender,
     seasonClimate: defaultSeasonClimate,
     sceneElements: [...defaultSceneElements],
     imageTypeCounts: createEmptyImageTypeCounts(),
@@ -395,6 +403,10 @@ function readPersonProfile(value: unknown): PersonProfile {
   return defaultPersonProfile;
 }
 
+function readPersonGender(value: unknown): PersonGender {
+  return value === 'male' || value === 'female' ? value : defaultPersonGender;
+}
+
 function readSeasonClimate(value: unknown): SeasonClimate {
   return value === 'spring_autumn' ||
     value === 'summer' ||
@@ -480,6 +492,7 @@ function parseSavedGenerationSet(value: unknown, index: number): GenerationSet |
     name: readString(value.name) || getSuiteDisplayName(index),
     mode: imageTotal > 0 ? 'image_with_comment' : readGenerationMode(value.mode),
     personProfile: readPersonProfile(value.personProfile ?? value.personEthnicity),
+    personGender: readPersonGender(value.personGender),
     seasonClimate: readSeasonClimate(value.seasonClimate),
     sceneElements: readSceneElements(value.sceneElements),
     imageTypeCounts,
@@ -1039,6 +1052,10 @@ export default function BuyerShowAgentClient() {
     setSets((current) => current.map((set) => (set.id === setId ? { ...set, personProfile } : set)));
   }
 
+  function updateSetPersonGender(setId: string, personGender: PersonGender) {
+    setSets((current) => current.map((set) => (set.id === setId ? { ...set, personGender } : set)));
+  }
+
   function updateSetSeasonClimate(setId: string, seasonClimate: SeasonClimate) {
     setSets((current) => current.map((set) => (set.id === setId ? { ...set, seasonClimate } : set)));
   }
@@ -1102,6 +1119,7 @@ export default function BuyerShowAgentClient() {
           name: getSuiteDisplayName(nextIndex - 1),
           mode: 'comment_only',
           personProfile: defaultPersonProfile,
+          personGender: defaultPersonGender,
           seasonClimate: defaultSeasonClimate,
           sceneElements: [...defaultSceneElements],
           imageTypeCounts: createEmptyImageTypeCounts(),
@@ -1377,6 +1395,7 @@ export default function BuyerShowAgentClient() {
     setGenerationError(undefined);
     const set = sets.find((item) => item.id === setId);
     const personProfile = set?.personProfile ?? defaultPersonProfile;
+    const personGender = set?.personGender ?? defaultPersonGender;
     const seasonClimate = set?.seasonClimate ?? defaultSeasonClimate;
     const sceneElement = image.sceneElement ?? set?.sceneElements[0] ?? defaultSceneElements[0];
     try {
@@ -1388,6 +1407,7 @@ export default function BuyerShowAgentClient() {
         productInfo: currentProductInfo,
         imageType: image.type,
         personProfile,
+        personGender,
         sceneElement,
         seasonClimate,
         imageUrls: getReferenceImageUrls(uploadedAssets),
@@ -1789,6 +1809,25 @@ export default function BuyerShowAgentClient() {
                                 checked={set.personProfile === personProfile}
                                 name={`${set.id}-person-profile`}
                                 onChange={() => updateSetPersonProfile(set.id, personProfile)}
+                                type="radio"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className={styles.ethnicityPicker}>
+                      <strong>性别</strong>
+                      <div className={styles.chipRow}>
+                        {Object.entries(personGenderLabels).map(([value, label]) => {
+                          const personGender = value as PersonGender;
+                          return (
+                            <label className={styles.chip} data-person-gender={personGender} key={personGender}>
+                              <input
+                                checked={set.personGender === personGender}
+                                name={`${set.id}-person-gender`}
+                                onChange={() => updateSetPersonGender(set.id, personGender)}
                                 type="radio"
                               />
                               {label}
