@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { buyerShowErrorResponse, readCurrentBuyerShowUser } from '@/lib/buyer-show/auth';
 import { generateCommentForLanguage } from '@/lib/buyer-show/generation-service';
 import { languageCodeSchema, productInfoSchema } from '@/lib/buyer-show/schemas';
 
@@ -11,11 +12,12 @@ const regenerateCommentSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    await readCurrentBuyerShowUser(request);
     const body = await request.json();
     const input = regenerateCommentSchema.parse(body);
     const comment = await generateCommentForLanguage(input.productInfo, input.language, input.setId);
     return NextResponse.json({ ok: true, comment });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });
+    return buyerShowErrorResponse(error);
   }
 }

@@ -23,6 +23,7 @@ const expectedTexts = [
   'yellow',
   'white',
   'black',
+  'objectKey',
 ];
 
 for (const text of expectedTexts) {

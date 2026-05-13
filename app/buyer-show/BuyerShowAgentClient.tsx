@@ -43,6 +43,19 @@ type ClientUploadedAsset = UploadedAsset & {
   previewUrl: string;
 };
 
+type SignedAssetUpload = {
+  ok: true;
+  key: string;
+  uploadUrl: string;
+  contentType: string;
+  expiresIn: number;
+};
+
+type AssetUploadError = {
+  ok: false;
+  error: string;
+};
+
 type SavedBuyerShowState = {
   version: 1;
   savedAt: string;
@@ -67,6 +80,20 @@ type SavedBuyerShowState = {
   generationError?: string;
 };
 
+type BuyerShowHistoryItem = {
+  id: string;
+  title: string;
+  productName?: string | null;
+  category?: string | null;
+  productInfo: ProductInfo;
+  generationSets: GenerationSet[];
+  results: GeneratedResult[];
+  status: GeneratedComment['complianceStatus'];
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+};
+
 const storageKeys: Record<TagGroup, string> = {
   claims: 'buyerShow.fixedTags.claims',
   skinTypes: 'buyerShow.fixedTags.skinTypes',
@@ -74,6 +101,8 @@ const storageKeys: Record<TagGroup, string> = {
 };
 
 const stateStorageKey = 'buyerShow.savedState.v1';
+const assetUploadMaxDimension = 1280;
+const assetUploadQuality = 0.82;
 
 const uploadSections: Array<{ type: UploadedAssetType; title: string; description: string }> = [
   { type: 'product', title: '产品图', description: '瓶身、罐体、膏体外观，可单张或多张上传' },
@@ -156,7 +185,8 @@ function toAssetPayload(asset: ClientUploadedAsset): UploadedAsset {
   return {
     id: asset.id,
     type: asset.type,
-    localPreviewKey: asset.localPreviewKey,
+    objectKey: asset.objectKey,
+    localPreviewKey: asset.objectKey ? undefined : asset.localPreviewKey,
     temporaryObjectUrl: asset.temporaryObjectUrl,
     deletedAfterProcessing: asset.deletedAfterProcessing,
   };
@@ -164,8 +194,8 @@ function toAssetPayload(asset: ClientUploadedAsset): UploadedAsset {
 
 function getReferenceImageUrls(assets: ClientUploadedAsset[]) {
   return assets
-    .map((asset) => asset.temporaryObjectUrl ?? asset.localPreviewKey)
-    .filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
+    .map((asset) => asset.temporaryObjectUrl)
+    .filter((url): url is string => Boolean(url && url.startsWith('http')));
 }
 
 function cloneGenerationSets(sets: GenerationSet[] = defaultGenerationSets): GenerationSet[] {
@@ -334,6 +364,7 @@ function parseSavedAsset(value: unknown): ClientUploadedAsset | undefined {
     type,
     name: readString(value.name) || '已保存图片',
     previewUrl,
+    objectKey: readOptionalString(value.objectKey),
     localPreviewKey,
     temporaryObjectUrl: readOptionalString(value.temporaryObjectUrl),
     deletedAfterProcessing: typeof value.deletedAfterProcessing === 'boolean' ? value.deletedAfterProcessing : false,
@@ -458,13 +489,87 @@ function displayCategoryFromProductInfo(category: ProductCategory): ProductCateg
   return cleanCategory === 'unknown' ? '' : cleanCategory;
 }
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('图片读取失败'));
-    reader.readAsDataURL(file);
+async function prepareImageForUpload(file: File) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('只能上传图片文件');
+  }
+  const contentType = normalizeUploadContentType(file.type);
+  if (!contentType) {
+    throw new Error('只支持 JPG、PNG 或 WebP 图片');
+  }
+
+  const fallback = {
+    blob: file,
+    fileName: file.name,
+    contentType,
+  };
+
+  if (typeof document === 'undefined' || typeof createImageBitmap === 'undefined') {
+    return fallback;
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, assetUploadMaxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return fallback;
+
+    context.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', assetUploadQuality));
+    if (!blob) return fallback;
+
+    return {
+      blob,
+      fileName: replaceFileExtension(file.name, 'webp'),
+      contentType: 'image/webp',
+    };
+  } finally {
+    bitmap.close();
+  }
+}
+
+function normalizeUploadContentType(contentType: string) {
+  const normalized = contentType.trim().toLowerCase();
+  return normalized === 'image/png' || normalized === 'image/webp' || normalized === 'image/jpeg' ? normalized : undefined;
+}
+
+function replaceFileExtension(fileName: string, extension: string) {
+  const cleanName = fileName.trim() || 'upload';
+  return `${cleanName.replace(/\.[^.]+$/, '')}.${extension}`;
+}
+
+async function uploadAssetToR2(type: UploadedAssetType, file: File) {
+  const prepared = await prepareImageForUpload(file);
+  const response = await postJson<SignedAssetUpload | AssetUploadError>('/api/buyer-show/assets/sign-upload', {
+    assetType: type,
+    fileName: prepared.fileName,
+    contentType: prepared.contentType,
+    byteSize: prepared.blob.size,
   });
+
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+
+  const uploadResponse = await fetch(response.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': response.contentType },
+    body: prepared.blob,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`R2 上传失败（HTTP ${uploadResponse.status}）`);
+  }
+
+  return {
+    key: response.key,
+    blob: prepared.blob,
+  };
 }
 
 export default function BuyerShowAgentClient() {
@@ -486,6 +591,9 @@ export default function BuyerShowAgentClient() {
   const [assets, setAssets] = useState<ClientUploadedAsset[]>([]);
   const [sets, setSets] = useState<GenerationSet[]>(() => cloneGenerationSets());
   const [results, setResults] = useState<GeneratedResult[]>([]);
+  const [historyId, setHistoryId] = useState<string | undefined>();
+  const [historyItems, setHistoryItems] = useState<BuyerShowHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | undefined>();
   const [previewImage, setPreviewImage] = useState<GeneratedImage | undefined>();
@@ -496,6 +604,7 @@ export default function BuyerShowAgentClient() {
     setFixedClaims(readStoredTags('claims'));
     setFixedSkinTypes(readStoredTags('skinTypes'));
     setFixedUsageFeels(readStoredTags('usageFeels'));
+    void loadHistoryItems();
   }, []);
 
   const currentProductInfo = useMemo<ProductInfo>(
@@ -534,7 +643,7 @@ export default function BuyerShowAgentClient() {
       saveUsageFeelAsFixed,
       assets: assets.map((asset) => ({
         ...asset,
-        previewUrl: asset.localPreviewKey || asset.previewUrl,
+        previewUrl: asset.localPreviewKey || '',
       })),
       sets: cloneGenerationSets(sets),
       results,
@@ -594,6 +703,92 @@ export default function BuyerShowAgentClient() {
     }
   }
 
+  function buildHistoryPayload(targetResults = results, options?: { productInfo?: ProductInfo; generationSets?: GenerationSet[]; targetHistoryId?: string }) {
+    return {
+      historyId: options?.targetHistoryId ?? historyId,
+      productInfo: options?.productInfo ?? currentProductInfo,
+      generationSets: cloneGenerationSets(options?.generationSets ?? sets),
+      results: targetResults,
+    };
+  }
+
+  async function persistCurrentHistory(
+    targetResults = results,
+    options?: { productInfo?: ProductInfo; generationSets?: GenerationSet[]; targetHistoryId?: string },
+  ) {
+    if (!targetResults.length) return;
+
+    try {
+      const response = await postJson<{ ok: true; item: BuyerShowHistoryItem } | { ok: false; error: string }>(
+        '/api/buyer-show/history',
+        buildHistoryPayload(targetResults, options),
+      );
+      if (!response.ok) throw new Error(response.error);
+      setHistoryId(response.item.id);
+      setSnapshotStatus(`云端历史已保存 ${formatSnapshotTime(response.item.updatedAt)}`);
+      void loadHistoryItems();
+    } catch (error) {
+      setSnapshotStatus('云端历史保存失败');
+      setGenerationError(error instanceof Error ? `保存云端历史失败：${error.message}` : '保存云端历史失败');
+    }
+  }
+
+  async function loadHistoryItems() {
+    setIsHistoryLoading(true);
+    try {
+      const response = await getJson<{ ok: true; items: BuyerShowHistoryItem[] } | { ok: false; error: string }>(
+        '/api/buyer-show/history?limit=20',
+      );
+      if (!response.ok) throw new Error(response.error);
+      setHistoryItems(response.items);
+    } catch {
+      setHistoryItems([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  async function loadHistoryItem(targetHistoryId: string) {
+    if (!targetHistoryId) return;
+
+    try {
+      const response = await getJson<{ ok: true; item: BuyerShowHistoryItem } | { ok: false; error: string }>(
+        `/api/buyer-show/history/${encodeURIComponent(targetHistoryId)}`,
+      );
+      if (!response.ok) throw new Error(response.error);
+
+      applyProductInfo(response.item.productInfo);
+      setSets(cloneGenerationSets(response.item.generationSets));
+      setResults(response.item.results);
+      setHistoryId(response.item.id);
+      setGenerationError(undefined);
+      setPreviewImage(undefined);
+      setSnapshotStatus(`已载入云端历史 ${formatSnapshotTime(response.item.updatedAt)}`);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? `载入云端历史失败：${error.message}` : '载入云端历史失败');
+    }
+  }
+
+  async function deleteCurrentHistoryItem() {
+    if (!historyId) {
+      setSnapshotStatus('还没有选中的云端历史');
+      return;
+    }
+
+    try {
+      const response = await requestJson<{ ok: true } | { ok: false; error: string }>(
+        `/api/buyer-show/history/${encodeURIComponent(historyId)}`,
+        { method: 'DELETE' },
+      );
+      if (!response.ok) throw new Error(response.error);
+      setHistoryId(undefined);
+      setSnapshotStatus('云端历史已删除');
+      await loadHistoryItems();
+    } catch (error) {
+      setGenerationError(error instanceof Error ? `删除云端历史失败：${error.message}` : '删除云端历史失败');
+    }
+  }
+
   function handleNewProject() {
     generationRequestIdRef.current += 1;
     setProductName('');
@@ -612,6 +807,7 @@ export default function BuyerShowAgentClient() {
     setAssets([]);
     setSets(createClearedGenerationSets());
     setResults([]);
+    setHistoryId(undefined);
     setIsGenerating(false);
     setGenerationError(undefined);
     setPreviewImage(undefined);
@@ -765,19 +961,28 @@ export default function BuyerShowAgentClient() {
     const files = Array.from(uploadInput.files ?? []);
     if (!files.length) return;
 
-    const nextAssets = await Promise.all(
-      files.map(async (file, index) => ({
-        id: `${type}-${Date.now()}-${index}`,
-        type,
-        name: file.name,
-        localPreviewKey: await readFileAsDataUrl(file),
-        previewUrl: URL.createObjectURL(file),
-        deletedAfterProcessing: false,
-      })),
-    );
+    setGenerationError(undefined);
+    try {
+      const nextAssets = await Promise.all(
+        files.map(async (file, index) => {
+          const uploaded = await uploadAssetToR2(type, file);
+          return {
+            id: `${type}-${Date.now()}-${index}`,
+            type,
+            name: file.name,
+            objectKey: uploaded.key,
+            previewUrl: URL.createObjectURL(uploaded.blob),
+            deletedAfterProcessing: false,
+          };
+        }),
+      );
 
-    setAssets((current) => [...current, ...nextAssets]);
-    uploadInput.value = '';
+      setAssets((current) => [...current, ...nextAssets]);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : '图片上传失败');
+    } finally {
+      uploadInput.value = '';
+    }
   }
 
   function removeAsset(assetId: string) {
@@ -797,8 +1002,8 @@ export default function BuyerShowAgentClient() {
       rewriteSuggestion?: string;
     },
   ) {
-    setResults((current) =>
-      current.map((result) =>
+    setResults((current) => {
+      const nextResults = current.map((result) =>
         result.id === resultId
           ? {
               ...result,
@@ -814,8 +1019,10 @@ export default function BuyerShowAgentClient() {
               ),
             }
           : result,
-      ),
-    );
+      );
+      void persistCurrentHistory(nextResults);
+      return nextResults;
+    });
   }
 
   async function runComplianceChecks(targets: Array<Pick<GeneratedResult, 'id' | 'comments'>>, requestId = generationRequestIdRef.current) {
@@ -861,9 +1068,12 @@ export default function BuyerShowAgentClient() {
 
     try {
       const generationSets = sets.map((set, index) => ({ ...set, name: getSuiteDisplayName(index) }));
-      const response = await postJson<{ ok: true; productInfo?: ProductInfo; results: GeneratedResult[] } | { ok: false; error: string }>(
+      const response = await postJson<
+        { ok: true; productInfo?: ProductInfo; results: GeneratedResult[]; historyId?: string; historyError?: string } | { ok: false; error: string }
+      >(
         '/api/buyer-show/generate',
         {
+          historyId,
           productInfo: currentProductInfo,
           assets: assets.map(toAssetPayload),
           generationSets,
@@ -880,6 +1090,13 @@ export default function BuyerShowAgentClient() {
         applyProductInfo(response.productInfo);
       }
       setResults(response.results);
+      setHistoryId(response.historyId);
+      if (response.historyError) {
+        setSnapshotStatus('生成完成，云端历史暂未保存');
+      } else if (response.historyId) {
+        setSnapshotStatus('生成完成，云端历史已保存');
+        void loadHistoryItems();
+      }
       void runComplianceChecks(response.results, requestId);
     } catch (error) {
       if (generationRequestIdRef.current === requestId) {
@@ -906,16 +1123,18 @@ export default function BuyerShowAgentClient() {
 
       if (!response.ok) throw new Error(response.error);
 
-      setResults((current) =>
-        current.map((result) =>
+      setResults((current) => {
+        const nextResults = current.map((result) =>
           result.id === resultId
             ? {
                 ...result,
                 comments: result.comments.map((item) => (item.id === comment.id ? response.comment : item)),
               }
-          : result,
-        ),
-      );
+            : result,
+        );
+        void persistCurrentHistory(nextResults);
+        return nextResults;
+      });
       void runComplianceChecks([{ id: resultId, comments: [response.comment] }]);
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : '重生成评论失败');
@@ -934,12 +1153,13 @@ export default function BuyerShowAgentClient() {
         imageType: image.type,
         personEthnicity,
         imageUrls: getReferenceImageUrls(assets),
+        assets: assets.map(toAssetPayload),
       });
 
       if (!response.ok) throw new Error(response.error);
 
-      setResults((current) =>
-        current.map((result) =>
+      setResults((current) => {
+        const nextResults = current.map((result) =>
           result.id === resultId
             ? {
                 ...result,
@@ -957,8 +1177,10 @@ export default function BuyerShowAgentClient() {
                 ),
               }
             : result,
-        ),
-      );
+        );
+        void persistCurrentHistory(nextResults);
+        return nextResults;
+      });
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : '重生成图片失败');
     }
@@ -1094,6 +1316,28 @@ export default function BuyerShowAgentClient() {
               </button>
               <button className={styles.secondaryButton} onClick={handleNewProject} type="button">
                 新建项目
+              </button>
+            </div>
+            <div className={styles.historyControls}>
+              <select
+                aria-label="云端历史"
+                data-action="load-history"
+                disabled={isHistoryLoading || !historyItems.length}
+                onChange={(event) => void loadHistoryItem(event.target.value)}
+                value={historyId ?? ''}
+              >
+                <option value="">{isHistoryLoading ? '历史加载中' : '云端历史'}</option>
+                {historyItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {formatSnapshotTime(item.updatedAt)} · {item.title}
+                  </option>
+                ))}
+              </select>
+              <button className={styles.secondaryButton} data-action="refresh-history" onClick={() => void loadHistoryItems()} type="button">
+                刷新历史
+              </button>
+              <button className={styles.dangerButton} data-action="delete-history" disabled={!historyId} onClick={() => void deleteCurrentHistoryItem()} type="button">
+                删除历史
               </button>
             </div>
             {snapshotStatus ? <span className={styles.stateStatus}>{snapshotStatus}</span> : null}
@@ -1505,11 +1749,19 @@ export default function BuyerShowAgentClient() {
 }
 
 async function postJson<T>(url: string, payload: unknown): Promise<T> {
-  const response = await fetch(url, {
+  return requestJson<T>(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  return requestJson<T>(url);
+}
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
   const raw = await response.text();
   const trimmed = raw.trim();
 

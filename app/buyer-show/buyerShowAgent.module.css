@@ -122,6 +122,24 @@
   gap: 8px;
 }
 
+.historyControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.historyControls select {
+  min-height: 38px;
+  max-width: 280px;
+  border: 1px solid #c8d2e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1c2430;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
 .stateStatus {
   color: #687486;
   font-size: 12px;
@@ -711,7 +729,8 @@
   }
 
   .topbarUtility,
-  .topbarActions {
+  .topbarActions,
+  .historyControls {
     width: 100%;
     justify-items: stretch;
     justify-content: flex-start;

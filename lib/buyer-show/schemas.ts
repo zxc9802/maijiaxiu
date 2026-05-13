@@ -45,6 +45,7 @@ export type ProductInfo = z.infer<typeof productInfoSchema>;
 export const uploadedAssetSchema = z.object({
   id: z.string(),
   type: uploadedAssetTypeSchema,
+  objectKey: z.string().min(1).max(512).optional(),
   localPreviewKey: z.string().optional(),
   temporaryObjectUrl: z.string().url().optional(),
   deletedAfterProcessing: z.boolean().default(false),

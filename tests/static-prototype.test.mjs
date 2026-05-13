@@ -8,7 +8,7 @@ const clientSource = readFileSync(resolve('app/buyer-show/BuyerShowAgentClient.t
 const cssSource = readFileSync(resolve('app/buyer-show/buyerShowAgent.module.css'), 'utf8');
 
 assert.equal(packageJson.scripts.dev, 'next dev');
-assert.equal(packageJson.scripts.build, 'next build');
+assert.equal(packageJson.scripts.build, 'prisma generate && next build');
 assert.equal(packageJson.dependencies.next !== undefined, true);
 
 for (const text of ['评论语言', '中文', 'English', 'ไทย', 'Bahasa Melayu', '保存为固定标签', '重生成单图', '删除套件', '新建项目']) {
@@ -62,8 +62,12 @@ assert.ok(!clientSource.includes('response.json()'), 'API helper should not blin
 assert.ok(clientSource.includes('接口返回了 HTML 错误页'), 'API helper should show a clear message for HTML error pages');
 assert.ok(clientSource.includes('getReferenceImageUrls'), 'client should collect uploaded reference images for single-image regeneration');
 assert.ok(
-  clientSource.includes('asset.temporaryObjectUrl ?? asset.localPreviewKey'),
-  'client should include browser-local uploaded image data when building reference image URLs',
+  clientSource.includes('assets: assets.map(toAssetPayload)'),
+  'client should send compact uploaded asset payloads for server-side R2 read URL signing',
+);
+assert.ok(
+  !clientSource.includes('asset.temporaryObjectUrl ?? asset.localPreviewKey'),
+  'client should not send browser-local base64 image data as model reference URLs',
 );
 assert.ok(clientSource.includes('const uploadInput = event.currentTarget;'), 'asset upload should capture the file input before async work');
 assert.ok(clientSource.includes('Array.from(uploadInput.files ?? [])'), 'asset upload should read files from the captured input');

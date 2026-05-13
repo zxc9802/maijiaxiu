@@ -1,5 +1,6 @@
 import { buildCompliancePrompt, buildHumanizedCommentPrompt } from './humanizer-rules';
 import { generateBuyerShowImage } from './image-provider';
+import { createR2ReadUrl } from './r2-storage';
 import {
   generateRequestSchema,
   getLanguageLabel,
@@ -38,7 +39,7 @@ type InferredProductInfoJson = {
 export async function generateBuyerShowResults(input: GenerateRequest): Promise<GeneratedResult[]> {
   const request = generateRequestSchema.parse(input);
   const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
-  const imageUrls = getInferenceImageUrls(request.assets);
+  const imageUrls = await resolveUploadedAssetImageUrls(request.assets);
 
   return Promise.all(
     request.generationSets.map(async (set) => {
@@ -86,7 +87,7 @@ function expandImageTypes(imageTypeCounts: Record<ImageType, number>) {
 export async function completeMissingProductInfo(productInfo: ProductInfo, assets: UploadedAsset[]) {
   if (!hasMissingProductInfo(productInfo)) return productInfo;
 
-  const imageUrls = getInferenceImageUrls(assets);
+  const imageUrls = await resolveUploadedAssetImageUrls(assets);
   if (!imageUrls.length) return productInfo;
 
   const prompt = [
@@ -200,10 +201,18 @@ function hasMissingProductInfo(productInfo: ProductInfo) {
   );
 }
 
-function getInferenceImageUrls(assets: UploadedAsset[]) {
-  return assets
-    .map((asset) => asset.temporaryObjectUrl ?? asset.localPreviewKey)
-    .filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
+export async function resolveUploadedAssetImageUrls(assets: UploadedAsset[]) {
+  const urls = await Promise.all(
+    assets.map(async (asset) => {
+      if (asset.objectKey) {
+        return createR2ReadUrl(asset.objectKey);
+      }
+
+      return asset.temporaryObjectUrl ?? asset.localPreviewKey;
+    }),
+  );
+
+  return urls.filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
 }
 
 function mergeInferredProductInfo(productInfo: ProductInfo, inferred: InferredProductInfoJson): ProductInfo {
