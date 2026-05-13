@@ -47,12 +47,15 @@ assert.ok(
   'productCategorySchema should not be limited to fixed category options',
 );
 
-for (const name of ['套件1', '套件2', '套件3']) {
+for (const name of ['套件1']) {
   assert.ok(schemaSource.includes(`name: '${name}'`), `default generation sets should use simple name ${name}`);
 }
 
-const defaultSetBlocks = schemaSource.match(/id: 'set-[abc]'[\s\S]*?commentCount: \d,/g) ?? [];
-assert.equal(defaultSetBlocks.length, 3, 'default generation sets should include three set blocks');
+assert.ok(!schemaSource.includes("name: '套件2'"), 'default generation sets should not include suite 2');
+assert.ok(!schemaSource.includes("name: '套件3'"), 'default generation sets should not include suite 3');
+
+const defaultSetBlocks = schemaSource.match(/id: 'set-[a]'[\s\S]*?commentCount: \d,/g) ?? [];
+assert.equal(defaultSetBlocks.length, 1, 'default generation sets should include one set block');
 for (const block of defaultSetBlocks) {
   assert.ok(block.includes("personEthnicity: 'yellow'"), 'each default generation set should default to yellow ethnicity');
 }

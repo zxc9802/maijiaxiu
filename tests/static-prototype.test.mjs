@@ -114,7 +114,6 @@ const requiredText = [
   'ai_inferred',
   'mixed',
   '套件1',
-  '套件2',
   '手动修改后重新审查',
   '自定义卖点',
   '自定义肤质',

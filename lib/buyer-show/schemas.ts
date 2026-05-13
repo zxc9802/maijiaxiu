@@ -141,34 +141,6 @@ export const defaultGenerationSets = [
     languages: ['zh-CN', 'en-US'],
     commentCount: 2,
   },
-  {
-    id: 'set-b',
-    name: '套件2',
-    mode: 'comment_only',
-    personEthnicity: 'yellow',
-    imageTypeCounts: {
-      texture_on_hand: 0,
-      bathroom_vanity: 0,
-      handheld_product_closeup: 0,
-      selfie_holding_product: 0,
-    },
-    languages: ['zh-CN'],
-    commentCount: 1,
-  },
-  {
-    id: 'set-c',
-    name: '套件3',
-    mode: 'image_with_comment',
-    personEthnicity: 'yellow',
-    imageTypeCounts: {
-      texture_on_hand: 0,
-      bathroom_vanity: 0,
-      handheld_product_closeup: 0,
-      selfie_holding_product: 1,
-    },
-    languages: ['th-TH', 'ms-MY'],
-    commentCount: 2,
-  },
 ] satisfies GenerationSet[];
 
 export function getLanguageLabel(code: LanguageCode) {
