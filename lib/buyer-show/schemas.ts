@@ -17,7 +17,7 @@ export const productCategorySchema = z
 export const uploadedAssetTypeSchema = z.enum(['product', 'package', 'texture']);
 export const generationModeSchema = z.enum(['comment_only', 'image_with_comment']);
 export const imageTypeSchema = z.enum(['texture_on_hand', 'bathroom_vanity', 'handheld_product_closeup', 'selfie_holding_product']);
-export const personProfileSchema = z.enum(['muslim_black', 'muslim_asian', 'southeast_asia_deep', 'southeast_asia_asian', 'white']);
+export const personProfileSchema = z.enum(['muslim_black', 'muslim_asian', 'asian', 'southeast_asia_deep', 'southeast_asia_asian', 'white']);
 export const legacyPersonEthnicitySchema = z.enum(['yellow', 'white', 'black']);
 export const legacyPersonEthnicityToProfile: Record<z.infer<typeof legacyPersonEthnicitySchema>, z.infer<typeof personProfileSchema>> = {
   yellow: 'southeast_asia_asian',

@@ -88,7 +88,23 @@ const seasideSelfiePrompt = buildImagePrompt(
   'summer',
 );
 assertIncludesAll(seasideSelfiePrompt, ['selfie', 'Southeast Asian seaside']);
-assertExcludesAll(seasideSelfiePrompt, ['bedroom mirror selfie', 'ordinary bedroom background']);
+assertExcludesAll(seasideSelfiePrompt, ['bedroom mirror selfie', 'ordinary bedroom background', 'near the face or chest']);
+
+const seasideSelfieVariantPrompt = buildImagePrompt(
+  productInfo,
+  'selfie_holding_product',
+  'southeast_asia_asian',
+  'southeast_asia_seaside',
+  'summer',
+  1,
+);
+assertIncludesAll(seasideSelfieVariantPrompt, ['Pose variant', 'product visible as proof-of-use']);
+assertExcludesAll(seasideSelfieVariantPrompt, ['near the face or chest', 'product pressed against cheek']);
+assert.notEqual(
+  seasideSelfiePrompt,
+  seasideSelfieVariantPrompt,
+  'selfie prompts should vary pose guidance across generated image index',
+);
 
 const tropicalWinterPrompt = buildImagePrompt(
   productInfo,
@@ -128,6 +144,15 @@ const indoorWinterPrompt = buildImagePrompt(
   'winter',
 );
 assertIncludesAll(indoorWinterPrompt, ['cold winter weather', 'heavier everyday layers']);
+
+const asianProfilePrompt = buildImagePrompt(
+  productInfo,
+  'selfie_holding_product',
+  'asian',
+  'living_room',
+  'spring_autumn',
+);
+assertIncludesAll(asianProfilePrompt, ['East Asian customer', 'Chinese, Korean, or Japanese appearance range', 'dark eyes', 'black or dark brown hair']);
 
 for (const sceneElement of ['unboxing', 'living_room', 'sofa', 'dressing_table', 'southeast_asia_seaside', 'southeast_asia_city']) {
   const productOnlyPrompt = buildImagePrompt(productInfo, 'bathroom_vanity', 'southeast_asia_asian', sceneElement, 'summer');

@@ -8,8 +8,7 @@ export async function POST(request: Request) {
     const user = await readCurrentBuyerShowUser(request);
     const body = await request.json();
     const input = generateRequestSchema.parse(body);
-    const historyId = typeof body.historyId === 'string' ? body.historyId : undefined;
-    const job = await createBuyerShowGenerationJob(user, input, historyId);
+    const job = await createBuyerShowGenerationJob(user, input);
 
     scheduleBuyerShowGenerationJob(job.id);
 

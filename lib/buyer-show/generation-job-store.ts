@@ -1,6 +1,5 @@
 import type { Prisma } from '@prisma/client';
 import { completeMissingProductInfo, generateBuyerShowResults } from './generation-service';
-import { upsertBuyerShowHistory } from './history-store';
 import { withPrismaRetry } from './prisma';
 import { generateRequestSchema, type GeneratedResult, type GenerateRequest, type ProductInfo } from './schemas';
 import type { BuyerShowUser } from './auth';
@@ -76,22 +75,6 @@ function normalizeGenerationJobStatus(status: string): BuyerShowGenerationJobSta
   return 'queued';
 }
 
-function normalizeStoredUser(userId: string, userSnapshot: Prisma.JsonValue): BuyerShowUser {
-  const snapshot = typeof userSnapshot === 'object' && userSnapshot ? (userSnapshot as Record<string, unknown>) : {};
-  const readString = (key: string) => {
-    const value = snapshot[key];
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-  };
-
-  return {
-    userId,
-    account: readString('account'),
-    nickname: readString('nickname'),
-    groupName: readString('groupName'),
-    role: readString('role'),
-  };
-}
-
 async function updateJobProgress(jobId: string, progress: number) {
   await withPrismaRetry((client) =>
     client.buyerShowGenerationJob.update({
@@ -101,13 +84,12 @@ async function updateJobProgress(jobId: string, progress: number) {
   );
 }
 
-export async function createBuyerShowGenerationJob(user: BuyerShowUser, request: GenerateRequest, historyId?: string) {
+export async function createBuyerShowGenerationJob(user: BuyerShowUser, request: GenerateRequest) {
   return withPrismaRetry(async (client) => {
     const job = await client.buyerShowGenerationJob.create({
       data: {
         userId: user.userId,
         userSnapshot: toJsonValue(user),
-        historyId,
         request: toJsonValue(request),
         status: 'queued',
         progress: 0,
@@ -167,7 +149,6 @@ export async function runBuyerShowGenerationJob(jobId: string) {
 
   try {
     const request = generateRequestSchema.parse(claimedJob.request);
-    const user = normalizeStoredUser(claimedJob.userId, claimedJob.userSnapshot);
 
     await updateJobProgress(jobId, 15);
     const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
@@ -176,22 +157,6 @@ export async function runBuyerShowGenerationJob(jobId: string) {
     const results = await generateBuyerShowResults({ ...request, productInfo });
 
     await updateJobProgress(jobId, 85);
-    let savedHistoryId: string | undefined;
-    let historyError: string | undefined;
-
-    try {
-      const history = await upsertBuyerShowHistory(user, {
-        historyId: claimedJob.historyId || undefined,
-        productInfo,
-        generationSets: request.generationSets,
-        results,
-      });
-      savedHistoryId = history.id;
-    } catch (error) {
-      historyError = error instanceof Error ? error.message : 'History save failed';
-      console.error('[buyer-show-history] Failed to save generation history', error);
-    }
-
     await withPrismaRetry((client) =>
       client.buyerShowGenerationJob.update({
         where: { id: jobId },
@@ -200,8 +165,7 @@ export async function runBuyerShowGenerationJob(jobId: string) {
           progress: 100,
           productInfo: toJsonValue(productInfo),
           results: toJsonValue(results),
-          historyId: savedHistoryId || claimedJob.historyId,
-          historyError,
+          historyError: null,
           error: null,
           finishedAt: new Date(),
         },

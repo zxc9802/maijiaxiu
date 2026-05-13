@@ -38,6 +38,7 @@ const defaultSceneElements: SceneElement[] = ['dressing_table'];
 const personProfileLabels: Record<PersonProfile, string> = {
   muslim_black: '穆斯林黑人',
   muslim_asian: '穆斯林亚洲人',
+  asian: '亚洲人',
   southeast_asia_deep: '东南亚深肤',
   southeast_asia_asian: '东南亚亚洲人',
   white: '白人',
@@ -379,6 +380,7 @@ function readPersonProfile(value: unknown): PersonProfile {
   if (
     value === 'muslim_black' ||
     value === 'muslim_asian' ||
+    value === 'asian' ||
     value === 'southeast_asia_deep' ||
     value === 'southeast_asia_asian' ||
     value === 'white'
@@ -1223,7 +1225,6 @@ export default function BuyerShowAgentClient() {
             }
           : result,
       );
-      void persistCurrentHistory(nextResults);
       return nextResults;
     });
   }
@@ -1279,7 +1280,6 @@ export default function BuyerShowAgentClient() {
       >(
         '/api/buyer-show/generate',
         {
-          historyId,
           productInfo: currentProductInfo,
           assets: uploadedAssets.map(toAssetPayload),
           generationSets,
@@ -1298,13 +1298,7 @@ export default function BuyerShowAgentClient() {
         applyProductInfo(completedJob.productInfo);
       }
       setResults(completedJob.results ?? []);
-      setHistoryId(completedJob.historyId);
-      if (completedJob.historyError) {
-        setSnapshotStatus('生成完成，云端历史暂未保存');
-      } else if (completedJob.historyId) {
-        setSnapshotStatus('生成完成，云端历史已保存');
-        void loadHistoryItems();
-      }
+      setSnapshotStatus('生成完成，云端历史未保存');
       setGenerationStatus(undefined);
       void runComplianceChecks(completedJob.results ?? [], requestId);
     } catch (error) {
@@ -1371,7 +1365,6 @@ export default function BuyerShowAgentClient() {
               }
             : result,
         );
-        void persistCurrentHistory(nextResults);
         return nextResults;
       });
       void runComplianceChecks([{ id: resultId, comments: [response.comment] }]);
@@ -1423,7 +1416,6 @@ export default function BuyerShowAgentClient() {
               }
             : result,
         );
-        void persistCurrentHistory(nextResults);
         return nextResults;
       });
     } catch (error) {
@@ -1597,6 +1589,9 @@ export default function BuyerShowAgentClient() {
               </select>
               <button className={styles.secondaryButton} data-action="refresh-history" onClick={() => void loadHistoryItems()} type="button">
                 刷新历史
+              </button>
+              <button className={styles.secondaryButton} data-action="save-cloud-history" disabled={!results.length} onClick={() => void persistCurrentHistory()} type="button">
+                保存云端历史
               </button>
               <button className={styles.dangerButton} data-action="delete-history" disabled={!historyId} onClick={() => void deleteCurrentHistoryItem()} type="button">
                 删除历史

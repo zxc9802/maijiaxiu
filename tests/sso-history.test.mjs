@@ -51,10 +51,11 @@ assert.match(historyDetailRouteSource, /DELETE/);
 
 assert.match(generateRouteSource, /readCurrentBuyerShowUser/);
 assert.match(generateRouteSource, /createBuyerShowGenerationJob/);
-assert.match(generateRouteSource, /historyId/);
-assert.match(generationJobStoreSource, /upsertBuyerShowHistory/);
+assert.doesNotMatch(generateRouteSource, /historyId/);
+assert.doesNotMatch(generationJobStoreSource, /upsertBuyerShowHistory/);
 
 assert.match(clientSource, /historyId/);
 assert.match(clientSource, /loadHistoryItems/);
 assert.match(clientSource, /\/api\/buyer-show\/history/);
 assert.match(clientSource, /data-action="load-history"/);
+assert.match(clientSource, /data-action="save-cloud-history"/);

@@ -17,7 +17,7 @@ assert.match(jobStoreSource, /scheduleBuyerShowGenerationJob/);
 assert.match(jobStoreSource, /runBuyerShowGenerationJob/);
 assert.match(jobStoreSource, /completeMissingProductInfo/);
 assert.match(jobStoreSource, /generateBuyerShowResults/);
-assert.match(jobStoreSource, /upsertBuyerShowHistory/);
+assert.doesNotMatch(jobStoreSource, /upsertBuyerShowHistory/);
 
 assert.match(generateRouteSource, /scheduleBuyerShowGenerationJob/);
 assert.match(generateRouteSource, /status:\s*202/);

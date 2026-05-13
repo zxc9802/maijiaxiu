@@ -23,7 +23,7 @@ for (const text of ['runComplianceChecks', "complianceStatus: 'checking'", '审�
   assert.ok(clientSource.includes(text), `BuyerShowAgentClient should defer compliance review with marker ${text}`);
 }
 
-for (const text of ['人物画像', '穆斯林黑人', '穆斯林亚洲人', '东南亚深肤', '东南亚亚洲人', '白人', 'personProfile', 'updateSetPersonProfile']) {
+for (const text of ['人物画像', '穆斯林黑人', '穆斯林亚洲人', '亚洲人', '东南亚深肤', '东南亚亚洲人', '白人', 'personProfile', 'updateSetPersonProfile']) {
   assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite person profile selector marker ${text}`);
 }
 
@@ -145,6 +145,7 @@ const requiredText = [
   '人物画像',
   '穆斯林黑人',
   '穆斯林亚洲人',
+  '亚洲人',
   '东南亚深肤',
   '东南亚亚洲人',
   '白人',
@@ -214,6 +215,7 @@ const requiredPatterns = [
   [/data-scene-element="southeast_asia_city"/, 'prototype should include Southeast Asia city scene element'],
   [/data-person-profile="muslim_black"/, 'prototype should include Muslim Black profile option'],
   [/data-person-profile="muslim_asian"/, 'prototype should include Muslim Asian profile option'],
+  [/data-person-profile="asian"/, 'prototype should include Asian profile option'],
   [/data-person-profile="southeast_asia_deep"/, 'prototype should include Southeast Asian deep-skin profile option'],
   [/data-person-profile="southeast_asia_asian"/, 'prototype should include Southeast Asian Asian profile option'],
   [/data-person-profile="white"/, 'prototype should include white profile option'],

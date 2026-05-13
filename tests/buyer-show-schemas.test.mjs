@@ -22,6 +22,7 @@ const expectedTexts = [
   'personProfile',
   'muslim_black',
   'muslim_asian',
+  'asian',
   'southeast_asia_deep',
   'southeast_asia_asian',
   'white',
@@ -47,6 +48,7 @@ for (const text of expectedTexts) {
 
 assert.match(schemaSource, /export const supportedLanguages/, 'schemas.ts should export supportedLanguages');
 assert.match(schemaSource, /export const personProfileSchema/, 'schemas.ts should export personProfileSchema');
+assert.match(schemaSource, /personProfileSchema\s*=\s*z\.enum\(\[[^\]]*'asian'/, 'personProfileSchema should include the standalone Asian profile');
 assert.match(schemaSource, /export type PersonProfile/, 'schemas.ts should export PersonProfile');
 assert.match(schemaSource, /legacyPersonEthnicityToProfile/, 'schemas.ts should map legacy ethnicity values into person profiles');
 assert.match(schemaSource, /export const seasonClimateSchema/, 'schemas.ts should export seasonClimateSchema');

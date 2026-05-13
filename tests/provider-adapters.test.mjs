@@ -78,6 +78,8 @@ assert.ok(generationService.includes('buildSeasonClimatePromptGuidance'), 'image
 assert.ok(generationService.includes('buildPromptFusionGuidance'), 'image prompts should fuse person profile, season, scene, and image type guidance');
 assert.ok(generationService.includes('Black Muslim customer'), 'Muslim Black profile should guide visible customer appearance and modest styling');
 assert.ok(generationService.includes('Asian Muslim customer'), 'Muslim Asian profile should guide visible customer appearance and modest styling');
+assert.ok(generationService.includes('East Asian customer'), 'Asian profile should guide East Asian visible customer appearance');
+assert.ok(generationService.includes('Chinese, Korean, or Japanese appearance range'), 'Asian profile should narrow appearance toward China, Korea, and Japan');
 assert.ok(generationService.includes('Southeast Asian customer with deep tan to brown skin'), 'Southeast Asian deep-skin profile should avoid defaulting to African appearance');
 assert.ok(generationService.includes('Southeast Asian Malay, Indonesian, Thai, Vietnamese, or Filipino customer'), 'Southeast Asian Asian profile should guide regional appearance');
 assert.ok(generationService.includes('white/Caucasian customer'), 'white profile should guide visible skin and customer appearance');

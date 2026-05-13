@@ -45,13 +45,13 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
   const imageGenerationLimiter = createConcurrencyLimiter(2);
 
   return Promise.all(
-    request.generationSets.map(async (set) => {
+    request.generationSets.map(async (set, setIndex) => {
       const imageRequestsToGenerate = expandImageRequests(set.imageTypeCounts, set.sceneElements);
       const imageGenerationPromise: Promise<GeneratedImage[]> =
         set.mode === 'image_with_comment'
           ? Promise.all(
               imageRequestsToGenerate.map(async ({ type, sceneElement }, index) => {
-                const prompt = buildImagePrompt(productInfo, type, set.personProfile, sceneElement, set.seasonClimate);
+                const prompt = buildImagePrompt(productInfo, type, set.personProfile, sceneElement, set.seasonClimate, setIndex + index);
                 const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
                 return {
                   id: `${set.id}-image-${index + 1}`,
@@ -304,6 +304,7 @@ export function buildImagePrompt(
   personProfile: PersonProfile = 'southeast_asia_asian',
   sceneElement: SceneElement = 'dressing_table',
   seasonClimate: SeasonClimate = 'spring_autumn',
+  poseSeed = 0,
 ) {
   const typeInstruction: Record<ImageType, string> = {
     texture_on_hand:
@@ -324,6 +325,7 @@ export function buildImagePrompt(
   const seasonClimateGuidance = buildSeasonClimatePromptGuidance(effectiveSeasonClimate, sceneElement, seasonClimate);
   const promptFusionGuidance = buildPromptFusionGuidance(imageType, personProfile, sceneElement, effectiveSeasonClimate);
   const realismDetailsGuidance = buildRealismDetailsGuidance(imageType);
+  const poseVariantGuidance = buildPoseVariantPromptGuidance(imageType, poseSeed);
 
   return [
     typeInstruction[imageType],
@@ -332,6 +334,7 @@ export function buildImagePrompt(
     seasonClimateGuidance,
     personProfileGuidance,
     promptFusionGuidance,
+    poseVariantGuidance,
     'Overall style: casual buyer-show photo, unposed natural posture, slightly imperfect composition, authentic customer review photo.',
     'Camera look: shot on a phone camera, slightly uneven phone camera exposure, mild overexposure near the main light source, subtle shadow noise in darker areas, mild image noise, subtle jpeg compression.',
     realismDetailsGuidance,
@@ -375,7 +378,7 @@ function buildImageTypeSceneGuidance(imageType: ImageType, sceneElement: SceneEl
     ].join('\n'),
     selfie_holding_product: [
       isOutdoorTropicalScene
-        ? 'Scene: casual outdoor front-camera selfie in the selected Southeast Asian scene, product held naturally near the face or chest, imperfect phone framing.'
+        ? 'Scene: casual outdoor front-camera selfie in the selected Southeast Asian scene, product visible as proof-of-use, varied natural hand placement, imperfect phone framing.'
         : 'Scene: casual indoor selfie or mirror selfie matching the selected indoor scene, product held naturally, imperfect phone framing.',
       'Lighting: everyday natural light from the selected scene, soft realistic shadows under the chin, arms, hair, hands, and clothing folds.',
     ].join('\n'),
@@ -453,6 +456,8 @@ function buildPersonProfilePromptGuidance(personProfile: PersonProfile) {
       'Visible customer appearance: Black Muslim customer with natural deep brown skin tone, dark eyes, natural facial features, modest everyday styling, optional simple hijab for women, no ceremonial costume styling.',
     muslim_asian:
       'Visible customer appearance: Asian Muslim customer with light warm to tan skin tone, dark eyes, natural dark hair if visible, modest everyday styling, optional simple hijab or tudung for women.',
+    asian:
+      'Visible customer appearance: East Asian customer in the Chinese, Korean, or Japanese appearance range, natural fair-to-light warm skin tone, dark eyes, black or dark brown hair, natural facial features, casual everyday styling; do not imply Southeast Asian, South Asian, or Muslim styling unless the selected scene explicitly supports it.',
     southeast_asia_deep:
       'Visible customer appearance: Southeast Asian customer with deep tan to brown skin, dark eyes, dark hair, natural tropical everyday appearance; may suggest Melanesian, Papuan, or eastern Indonesian influenced features without defaulting to African appearance.',
     southeast_asia_asian:
@@ -462,6 +467,25 @@ function buildPersonProfilePromptGuidance(personProfile: PersonProfile) {
   };
 
   return guidance[personProfile];
+}
+
+function buildPoseVariantPromptGuidance(imageType: ImageType, poseSeed: number) {
+  if (imageType !== 'selfie_holding_product') return '';
+
+  const variants = [
+    'Pose variant: relaxed half-body selfie, product visible as proof-of-use around upper chest or lower frame, shoulders level, no deliberate head tilt, face natural and not beauty-influencer posed.',
+    'Pose variant: candid standing or walking selfie, product visible as proof-of-use in the lower third of the frame or around shoulder height, arm relaxed, background allowed to take more space.',
+    'Pose variant: seated or leaning everyday snapshot, product visible as proof-of-use in one hand near a table edge, railing, sofa arm, or bag strap, body angled slightly away from the camera.',
+    'Pose variant: off-center phone selfie, product visible as proof-of-use closer to the camera than the face or partly lower in frame, face may be slightly cropped or looking at the screen.',
+    'Pose variant: casual table or unboxing selfie, product visible as proof-of-use beside packaging or daily items, person secondary in the frame, expression neutral or mid-movement.',
+    'Pose variant: casual outdoor proof photo, product visible as proof-of-use at chest, waist, or lower-frame height, face and product do not share the same fixed cheek-side pose.',
+  ];
+  const normalizedIndex = Math.abs(Math.trunc(poseSeed)) % variants.length;
+
+  return [
+    variants[normalizedIndex],
+    'Pose discipline: vary product height, arm angle, face crop, gaze direction, and body angle across generated images; avoid repeating the same front-facing smile-and-product-beside-face template.',
+  ].join('\n');
 }
 
 function buildSeasonClimatePromptGuidance(seasonClimate: SeasonClimate, sceneElement: SceneElement, requestedSeasonClimate = seasonClimate) {
