@@ -15,9 +15,12 @@ type ProviderHttpResponse = {
   body: string;
 };
 
+const maxImageGenerationRetries = 5;
+const retryableProviderStatuses = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+
 export async function generateBuyerShowImage(input: ImageGenerationInput) {
   const apiKey = requireProviderSecret(providerConfig.imageApiKey, 'YUNWU_IMAGE_API_KEY');
-  const response = await requestImageGeneration({
+  const requestInput = {
     url: `${providerConfig.imageBaseUrl}/images/generations`,
     apiKey,
     payload: {
@@ -27,30 +30,82 @@ export async function generateBuyerShowImage(input: ImageGenerationInput) {
       prompt: input.prompt,
       image: input.imageUrls ?? [],
     },
-  });
-
-  const raw = response.body;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`Image provider returned non-JSON response: ${raw.slice(0, 160)}`);
-  }
-
-  if (!response.ok) {
-    throw new Error(readProviderError(parsed) ?? `Image provider failed with HTTP ${response.status}`);
-  }
-
-  const first = (parsed as { data?: Array<{ url?: string; b64_json?: string }> }).data?.[0];
-  if (!first?.url && !first?.b64_json) {
-    throw new Error('Image provider returned no image data');
-  }
-
-  return {
-    url: first.url,
-    b64Json: first.b64_json,
-    type: input.imageType,
   };
+
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxImageGenerationRetries; attempt += 1) {
+    try {
+      const response = await requestImageGeneration(requestInput);
+      const raw = response.body;
+      let parsed: unknown;
+
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        const error = new Error(`Image provider returned non-JSON response: ${raw.slice(0, 160)}`);
+        if (attempt < maxImageGenerationRetries && shouldRetryImageProviderResponse(response)) {
+          lastError = error;
+          await waitBeforeImageRetry(attempt);
+          continue;
+        }
+        throw error;
+      }
+
+      if (!response.ok) {
+        const error = new Error(readProviderError(parsed) ?? `Image provider failed with HTTP ${response.status}`);
+        if (attempt < maxImageGenerationRetries && shouldRetryImageProviderResponse(response)) {
+          lastError = error;
+          await waitBeforeImageRetry(attempt);
+          continue;
+        }
+        throw error;
+      }
+
+      const first = (parsed as { data?: Array<{ url?: string; b64_json?: string }> }).data?.[0];
+      if (!first?.url && !first?.b64_json) {
+        const error = new Error('Image provider returned no image data');
+        if (attempt < maxImageGenerationRetries) {
+          lastError = error;
+          await waitBeforeImageRetry(attempt);
+          continue;
+        }
+        throw error;
+      }
+
+      return {
+        url: first.url,
+        b64Json: first.b64_json,
+        type: input.imageType,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Image provider failed');
+      if (attempt >= maxImageGenerationRetries || !shouldRetryImageProviderError(lastError)) {
+        throw lastError;
+      }
+      await waitBeforeImageRetry(attempt);
+    }
+  }
+
+  throw lastError ?? new Error('Image provider failed');
+}
+
+function shouldRetryImageProviderResponse(response: ProviderHttpResponse) {
+  return retryableProviderStatuses.has(response.status) || (response.status >= 500 && response.status < 600);
+}
+
+function shouldRetryImageProviderError(error: Error) {
+  return (
+    error.message.startsWith('Image provider connection failed') ||
+    error.message.startsWith('Image provider returned non-JSON response') ||
+    /HTTP (408|409|425|429|5\d\d)/.test(error.message) ||
+    /Bad Gateway|Gateway Timeout|temporarily unavailable/i.test(error.message)
+  );
+}
+
+function waitBeforeImageRetry(attempt: number) {
+  const delayMs = Math.min(8000, 1000 * 2 ** attempt);
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 async function requestImageGeneration({

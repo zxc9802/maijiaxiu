@@ -20,6 +20,8 @@ assert.ok(imageProvider.includes('fetch'));
 assert.ok(imageProvider.includes('requestJsonOverHttp1'), 'image provider should include an HTTP/1.1 fallback');
 assert.ok(imageProvider.includes('node:https'), 'image provider should use Node HTTPS for the HTTP/1.1 fallback');
 assert.ok(imageProvider.includes('Image provider connection failed'), 'image provider should wrap low-level connection errors with provider context');
+assert.ok(imageProvider.includes('const maxImageGenerationRetries = 5'), 'image provider should retry transient image failures 5 times');
+assert.ok(imageProvider.includes('shouldRetryImageProviderResponse'), 'image provider should retry transient HTTP provider failures');
 assert.ok(generationService.includes('generateBuyerShowResults'));
 assert.ok(generationService.includes('compliance'));
 assert.ok(generationService.includes('readCommentText'), 'generation service should tolerate non-JSON comment model output');
@@ -35,6 +37,14 @@ assert.ok(generationService.includes('mergeInferredProductInfo'), 'generation se
 assert.ok(
   generationService.includes('const [images, comments] = await Promise.all'),
   'generation service should start image and comment provider calls in parallel while returning one combined result',
+);
+assert.ok(
+  generationService.includes('const imageGenerationLimiter = createConcurrencyLimiter(2)'),
+  'generation service should cap image generation concurrency at 2',
+);
+assert.ok(
+  generationService.includes('imageGenerationLimiter(() => generateBuyerShowImage'),
+  'generation service should run image provider calls through the shared limiter',
 );
 assert.ok(
   generationService.includes('const imageUrls = await resolveUploadedAssetImageUrls(request.assets)'),

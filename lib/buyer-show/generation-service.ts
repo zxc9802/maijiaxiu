@@ -40,6 +40,7 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
   const request = generateRequestSchema.parse(input);
   const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
   const imageUrls = await resolveUploadedAssetImageUrls(request.assets);
+  const imageGenerationLimiter = createConcurrencyLimiter(2);
 
   return Promise.all(
     request.generationSets.map(async (set) => {
@@ -49,7 +50,7 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
           ? Promise.all(
               imageTypesToGenerate.map(async (type, index) => {
                 const prompt = buildImagePrompt(productInfo, type, set.personEthnicity);
-                const generated = await generateBuyerShowImage({ prompt, imageUrls, imageType: type });
+                const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
                 return {
                   id: `${set.id}-image-${index + 1}`,
                   type,
@@ -76,6 +77,33 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
       };
     }),
   );
+}
+
+function createConcurrencyLimiter(limit: number) {
+  let activeCount = 0;
+  const queue: Array<() => void> = [];
+
+  function drainQueue() {
+    if (activeCount >= limit) return;
+    const next = queue.shift();
+    if (next) next();
+  }
+
+  return async function runLimited<T>(operation: () => Promise<T>): Promise<T> {
+    if (activeCount >= limit) {
+      await new Promise<void>((resolve) => {
+        queue.push(resolve);
+      });
+    }
+
+    activeCount += 1;
+    try {
+      return await operation();
+    } finally {
+      activeCount -= 1;
+      drainQueue();
+    }
+  };
 }
 
 function expandImageTypes(imageTypeCounts: Record<ImageType, number>) {
