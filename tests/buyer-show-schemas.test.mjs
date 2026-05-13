@@ -19,10 +19,25 @@ const expectedTexts = [
   'manual',
   'ai_inferred',
   'mixed',
-  'personEthnicity',
-  'yellow',
+  'personProfile',
+  'muslim_black',
+  'muslim_asian',
+  'southeast_asia_deep',
+  'southeast_asia_asian',
   'white',
-  'black',
+  'seasonClimate',
+  'spring_autumn',
+  'summer',
+  'winter',
+  'tropical_humid',
+  'rainy_season',
+  'sceneElements',
+  'unboxing',
+  'living_room',
+  'sofa',
+  'dressing_table',
+  'southeast_asia_seaside',
+  'southeast_asia_city',
   'objectKey',
 ];
 
@@ -31,11 +46,26 @@ for (const text of expectedTexts) {
 }
 
 assert.match(schemaSource, /export const supportedLanguages/, 'schemas.ts should export supportedLanguages');
-assert.match(schemaSource, /export const personEthnicitySchema/, 'schemas.ts should export personEthnicitySchema');
-assert.match(schemaSource, /export type PersonEthnicity/, 'schemas.ts should export PersonEthnicity');
+assert.match(schemaSource, /export const personProfileSchema/, 'schemas.ts should export personProfileSchema');
+assert.match(schemaSource, /export type PersonProfile/, 'schemas.ts should export PersonProfile');
+assert.match(schemaSource, /legacyPersonEthnicityToProfile/, 'schemas.ts should map legacy ethnicity values into person profiles');
+assert.match(schemaSource, /export const seasonClimateSchema/, 'schemas.ts should export seasonClimateSchema');
+assert.match(schemaSource, /export type SeasonClimate/, 'schemas.ts should export SeasonClimate');
+assert.match(schemaSource, /export const sceneElementSchema/, 'schemas.ts should export sceneElementSchema');
+assert.match(schemaSource, /export type SceneElement/, 'schemas.ts should export SceneElement');
 assert.match(schemaSource, /export const defaultGenerationSets/, 'schemas.ts should export defaultGenerationSets');
-assert.match(schemaSource, /personEthnicity:\s*personEthnicitySchema\.default\('yellow'\)/, 'generation sets should default person ethnicity to yellow');
+assert.match(
+  schemaSource,
+  /personProfile:\s*personProfileSchema\.default\('southeast_asia_asian'\)/,
+  'generation sets should default person profile to Southeast Asian Asian',
+);
+assert.match(
+  schemaSource,
+  /seasonClimate:\s*seasonClimateSchema\.default\('spring_autumn'\)/,
+  'generation sets should default season climate to spring/autumn',
+);
 assert.match(schemaSource, /imageTypeCounts/, 'generation sets should store counts per image type');
+assert.match(schemaSource, /sceneElements:\s*z\.array\(sceneElementSchema\)\.default/, 'generation sets should store reusable scene elements');
 assert.ok(!schemaSource.includes('imageCount: z.number'), 'generation sets should not use a single suite-level image count');
 assert.ok(!schemaSource.includes('imageTypes: z.array'), 'generation sets should not use selected image types without per-type counts');
 assert.match(
@@ -58,7 +88,9 @@ assert.ok(!schemaSource.includes("name: '套件3'"), 'default generation sets sh
 const defaultSetBlocks = schemaSource.match(/id: 'set-[a]'[\s\S]*?commentCount: \d,/g) ?? [];
 assert.equal(defaultSetBlocks.length, 1, 'default generation sets should include one set block');
 for (const block of defaultSetBlocks) {
-  assert.ok(block.includes("personEthnicity: 'yellow'"), 'each default generation set should default to yellow ethnicity');
+  assert.ok(block.includes("personProfile: 'southeast_asia_asian'"), 'each default generation set should default to Southeast Asian Asian profile');
+  assert.ok(block.includes("seasonClimate: 'spring_autumn'"), 'each default generation set should default to spring/autumn climate');
+  assert.ok(block.includes("sceneElements: ['dressing_table']"), 'each default generation set should default to dressing table scene');
 }
 
 for (const oldName of ['真实素人', '只评论结果', '自拍持产品']) {

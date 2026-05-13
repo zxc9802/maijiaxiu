@@ -13,9 +13,11 @@ import {
   type ImageType,
   type ImageTypeCounts,
   type LanguageCode,
-  type PersonEthnicity,
+  type PersonProfile,
   type ProductCategory,
   type ProductInfo,
+  type SeasonClimate,
+  type SceneElement,
   type UploadedAsset,
   type UploadedAssetType,
 } from '@/lib/buyer-show/schemas';
@@ -30,11 +32,30 @@ const defaultFixedTags = {
 const languageLabelSmoke = ['中文', 'English', 'ไทย', 'Bahasa Melayu'];
 const categorySuggestions = ['护肤 > 保湿 > 面霜', '护肤 > 精华', '美妆 > 底妆', '个护 > 洗护', '母婴 > 湿巾'];
 const pendingCategoryLabels = new Set(['unknown', '未知/待识别']);
-const defaultPersonEthnicity: PersonEthnicity = 'yellow';
-const personEthnicityLabels: Record<PersonEthnicity, string> = {
-  yellow: '黄种人',
-  white: '白种人',
-  black: '黑种人',
+const defaultPersonProfile: PersonProfile = 'southeast_asia_asian';
+const defaultSeasonClimate: SeasonClimate = 'spring_autumn';
+const defaultSceneElements: SceneElement[] = ['dressing_table'];
+const personProfileLabels: Record<PersonProfile, string> = {
+  muslim_black: '穆斯林黑人',
+  muslim_asian: '穆斯林亚洲人',
+  southeast_asia_deep: '东南亚深肤',
+  southeast_asia_asian: '东南亚亚洲人',
+  white: '白人',
+};
+const seasonClimateLabels: Record<SeasonClimate, string> = {
+  spring_autumn: '春秋',
+  summer: '夏季',
+  winter: '冬季',
+  tropical_humid: '热带湿热',
+  rainy_season: '雨季',
+};
+const sceneElementLabels: Record<SceneElement, string> = {
+  unboxing: '拆箱',
+  living_room: '客厅',
+  sofa: '沙发',
+  dressing_table: '梳妆台',
+  southeast_asia_seaside: '东南亚户外-海边',
+  southeast_asia_city: '东南亚户外-城市',
 };
 
 type TagGroup = keyof typeof defaultFixedTags;
@@ -151,10 +172,11 @@ function createMockResults(sets: GenerationSet[]): GeneratedResult[] {
     mode: set.mode,
     images:
       set.mode === 'image_with_comment'
-        ? expandSetImageTypes(set).map((type, index) => ({
+        ? expandSetImageRequests(set).map(({ type, sceneElement }, index) => ({
             id: `${set.id}-image-${index}`,
             type,
-            promptSnapshot: `Mock ${type} prompt`,
+            sceneElement,
+            promptSnapshot: `Mock ${type} prompt with ${sceneElement} scene`,
           }))
         : [],
     comments: set.languages.map((language, index) => ({
@@ -231,7 +253,9 @@ function getReferenceImageUrls(assets: ClientUploadedAsset[]) {
 function cloneGenerationSets(sets: GenerationSet[] = defaultGenerationSets): GenerationSet[] {
   return sets.map((set) => ({
     ...set,
-    personEthnicity: set.personEthnicity ?? defaultPersonEthnicity,
+    personProfile: set.personProfile ?? defaultPersonProfile,
+    seasonClimate: set.seasonClimate ?? defaultSeasonClimate,
+    sceneElements: set.sceneElements?.length ? [...set.sceneElements] : [...defaultSceneElements],
     imageTypeCounts: cloneImageTypeCounts(set.imageTypeCounts),
     languages: [...set.languages],
   }));
@@ -242,7 +266,9 @@ function createClearedGenerationSets(): GenerationSet[] {
     ...set,
     name: getSuiteDisplayName(index),
     mode: 'comment_only',
-    personEthnicity: defaultPersonEthnicity,
+    personProfile: defaultPersonProfile,
+    seasonClimate: defaultSeasonClimate,
+    sceneElements: [...defaultSceneElements],
     imageTypeCounts: createEmptyImageTypeCounts(),
     languages: [],
     commentCount: 0,
@@ -291,10 +317,15 @@ function markCommentAsChecking(comment: GeneratedComment): GeneratedComment {
   };
 }
 
-function expandSetImageTypes(set: Pick<GenerationSet, 'imageTypeCounts'>) {
-  return (Object.entries(set.imageTypeCounts) as Array<[ImageType, number]>).flatMap(([type, count]) =>
+function expandSetImageRequests(set: Pick<GenerationSet, 'imageTypeCounts' | 'sceneElements'>) {
+  const sceneElements = set.sceneElements.length ? set.sceneElements : defaultSceneElements;
+  const imageTypes = (Object.entries(set.imageTypeCounts) as Array<[ImageType, number]>).flatMap(([type, count]) =>
     Array.from({ length: count }, () => type),
   );
+  return imageTypes.map((type, index) => ({
+    type,
+    sceneElement: sceneElements[index % sceneElements.length],
+  }));
 }
 
 function revokeAssetPreviewUrl(asset: ClientUploadedAsset) {
@@ -344,8 +375,38 @@ function readImageTypes(value: unknown): ImageType[] {
   return Array.isArray(value) ? value.filter((item): item is ImageType => supported.has(item as ImageType)) : [];
 }
 
-function readPersonEthnicity(value: unknown): PersonEthnicity {
-  return value === 'yellow' || value === 'white' || value === 'black' ? value : defaultPersonEthnicity;
+function readPersonProfile(value: unknown): PersonProfile {
+  if (
+    value === 'muslim_black' ||
+    value === 'muslim_asian' ||
+    value === 'southeast_asia_deep' ||
+    value === 'southeast_asia_asian' ||
+    value === 'white'
+  ) {
+    return value;
+  }
+
+  if (value === 'yellow') return 'southeast_asia_asian';
+  if (value === 'black') return 'muslim_black';
+  if (value === 'white') return 'white';
+
+  return defaultPersonProfile;
+}
+
+function readSeasonClimate(value: unknown): SeasonClimate {
+  return value === 'spring_autumn' ||
+    value === 'summer' ||
+    value === 'winter' ||
+    value === 'tropical_humid' ||
+    value === 'rainy_season'
+    ? value
+    : defaultSeasonClimate;
+}
+
+function readSceneElements(value: unknown): SceneElement[] {
+  const supported = new Set<SceneElement>(Object.keys(sceneElementLabels) as SceneElement[]);
+  const sceneElements = Array.isArray(value) ? value.filter((item): item is SceneElement => supported.has(item as SceneElement)) : [];
+  return sceneElements.length ? sceneElements : [...defaultSceneElements];
 }
 
 function readImageTypeCounts(value: unknown, legacyImageTypes: ImageType[], legacyImageCount: number): ImageTypeCounts {
@@ -416,7 +477,9 @@ function parseSavedGenerationSet(value: unknown, index: number): GenerationSet |
     id,
     name: readString(value.name) || getSuiteDisplayName(index),
     mode: imageTotal > 0 ? 'image_with_comment' : readGenerationMode(value.mode),
-    personEthnicity: readPersonEthnicity(value.personEthnicity),
+    personProfile: readPersonProfile(value.personProfile ?? value.personEthnicity),
+    seasonClimate: readSeasonClimate(value.seasonClimate),
+    sceneElements: readSceneElements(value.sceneElements),
     imageTypeCounts,
     languages,
     commentCount: readInteger(value.commentCount, languages.length, 0, 4),
@@ -970,8 +1033,25 @@ export default function BuyerShowAgentClient() {
     );
   }
 
-  function updateSetPersonEthnicity(setId: string, personEthnicity: PersonEthnicity) {
-    setSets((current) => current.map((set) => (set.id === setId ? { ...set, personEthnicity } : set)));
+  function updateSetPersonProfile(setId: string, personProfile: PersonProfile) {
+    setSets((current) => current.map((set) => (set.id === setId ? { ...set, personProfile } : set)));
+  }
+
+  function updateSetSeasonClimate(setId: string, seasonClimate: SeasonClimate) {
+    setSets((current) => current.map((set) => (set.id === setId ? { ...set, seasonClimate } : set)));
+  }
+
+  function toggleSetSceneElement(setId: string, sceneElement: SceneElement) {
+    setSets((current) =>
+      current.map((set) => {
+        if (set.id !== setId) return set;
+        const nextSceneElements = toggleArrayValue(set.sceneElements, sceneElement);
+        return {
+          ...set,
+          sceneElements: nextSceneElements.length ? nextSceneElements : set.sceneElements,
+        };
+      }),
+    );
   }
 
   function updateSetImageTypeCount(setId: string, imageType: ImageType, value: string) {
@@ -1019,7 +1099,9 @@ export default function BuyerShowAgentClient() {
           id: `set-${Date.now()}`,
           name: getSuiteDisplayName(nextIndex - 1),
           mode: 'comment_only',
-          personEthnicity: defaultPersonEthnicity,
+          personProfile: defaultPersonProfile,
+          seasonClimate: defaultSeasonClimate,
+          sceneElements: [...defaultSceneElements],
           imageTypeCounts: createEmptyImageTypeCounts(),
           languages: ['zh-CN'],
           commentCount: 1,
@@ -1300,7 +1382,10 @@ export default function BuyerShowAgentClient() {
 
   async function regenerateImage(resultId: string, setId: string, image: GeneratedImage) {
     setGenerationError(undefined);
-    const personEthnicity = sets.find((set) => set.id === setId)?.personEthnicity ?? defaultPersonEthnicity;
+    const set = sets.find((item) => item.id === setId);
+    const personProfile = set?.personProfile ?? defaultPersonProfile;
+    const seasonClimate = set?.seasonClimate ?? defaultSeasonClimate;
+    const sceneElement = image.sceneElement ?? set?.sceneElements[0] ?? defaultSceneElements[0];
     try {
       const uploadedAssets = await ensureAssetsUploaded(assets);
       const response = await postJson<
@@ -1309,7 +1394,9 @@ export default function BuyerShowAgentClient() {
       >('/api/buyer-show/regenerate-image', {
         productInfo: currentProductInfo,
         imageType: image.type,
-        personEthnicity,
+        personProfile,
+        sceneElement,
+        seasonClimate,
         imageUrls: getReferenceImageUrls(uploadedAssets),
         assets: uploadedAssets.map(toAssetPayload),
       });
@@ -1697,16 +1784,16 @@ export default function BuyerShowAgentClient() {
                       </button>
                     </div>
                     <div className={styles.ethnicityPicker}>
-                      <strong>人种</strong>
+                      <strong>人物画像</strong>
                       <div className={styles.chipRow}>
-                        {Object.entries(personEthnicityLabels).map(([value, label]) => {
-                          const personEthnicity = value as PersonEthnicity;
+                        {Object.entries(personProfileLabels).map(([value, label]) => {
+                          const personProfile = value as PersonProfile;
                           return (
-                            <label className={styles.chip} data-person-ethnicity={personEthnicity} key={personEthnicity}>
+                            <label className={styles.chip} data-person-profile={personProfile} key={personProfile}>
                               <input
-                                checked={set.personEthnicity === personEthnicity}
-                                name={`${set.id}-person-ethnicity`}
-                                onChange={() => updateSetPersonEthnicity(set.id, personEthnicity)}
+                                checked={set.personProfile === personProfile}
+                                name={`${set.id}-person-profile`}
+                                onChange={() => updateSetPersonProfile(set.id, personProfile)}
                                 type="radio"
                               />
                               {label}
@@ -1714,6 +1801,44 @@ export default function BuyerShowAgentClient() {
                           );
                         })}
                       </div>
+                    </div>
+                    <div className={styles.ethnicityPicker}>
+                      <strong>季节气候</strong>
+                      <div className={styles.chipRow}>
+                        {Object.entries(seasonClimateLabels).map(([value, label]) => {
+                          const seasonClimate = value as SeasonClimate;
+                          return (
+                            <label className={styles.chip} data-season-climate={seasonClimate} key={seasonClimate}>
+                              <input
+                                checked={set.seasonClimate === seasonClimate}
+                                name={`${set.id}-season-climate`}
+                                onChange={() => updateSetSeasonClimate(set.id, seasonClimate)}
+                                type="radio"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className={styles.languagePicker}>
+                      <strong>场景元素</strong>
+                      <div className={styles.chipRow}>
+                        {Object.entries(sceneElementLabels).map(([value, label]) => {
+                          const sceneElement = value as SceneElement;
+                          return (
+                            <label className={styles.chip} data-scene-element={sceneElement} key={sceneElement}>
+                              <input
+                                checked={set.sceneElements.includes(sceneElement)}
+                                onChange={() => toggleSetSceneElement(set.id, sceneElement)}
+                                type="checkbox"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className={styles.subtle}>多张图会按所选场景顺序轮换；至少保留一个场景。</p>
                     </div>
                     <div className={styles.languagePicker} data-language-selector={set.id}>
                       <strong>评论语言</strong>
@@ -2050,7 +2175,7 @@ function TagManager({
 
 const imageTypeLabels = {
   texture_on_hand: '质地上手图',
-  bathroom_vanity: '浴室/化妆台场景图',
+  bathroom_vanity: '商品摆放场景图',
   handheld_product_closeup: '手持商品特写图',
   selfie_holding_product: '真人自拍持产品图',
 } as const;

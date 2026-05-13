@@ -17,7 +17,22 @@ export const productCategorySchema = z
 export const uploadedAssetTypeSchema = z.enum(['product', 'package', 'texture']);
 export const generationModeSchema = z.enum(['comment_only', 'image_with_comment']);
 export const imageTypeSchema = z.enum(['texture_on_hand', 'bathroom_vanity', 'handheld_product_closeup', 'selfie_holding_product']);
-export const personEthnicitySchema = z.enum(['yellow', 'white', 'black']);
+export const personProfileSchema = z.enum(['muslim_black', 'muslim_asian', 'southeast_asia_deep', 'southeast_asia_asian', 'white']);
+export const legacyPersonEthnicitySchema = z.enum(['yellow', 'white', 'black']);
+export const legacyPersonEthnicityToProfile: Record<z.infer<typeof legacyPersonEthnicitySchema>, z.infer<typeof personProfileSchema>> = {
+  yellow: 'southeast_asia_asian',
+  white: 'white',
+  black: 'muslim_black',
+};
+export const seasonClimateSchema = z.enum(['spring_autumn', 'summer', 'winter', 'tropical_humid', 'rainy_season']);
+export const sceneElementSchema = z.enum([
+  'unboxing',
+  'living_room',
+  'sofa',
+  'dressing_table',
+  'southeast_asia_seaside',
+  'southeast_asia_city',
+]);
 export const languageCodeSchema = z.enum(['zh-CN', 'en-US', 'th-TH', 'ms-MY']);
 export const complianceStatusSchema = z.enum(['checking', 'passed', 'needs_review']);
 
@@ -26,7 +41,9 @@ export type ProductCategory = z.infer<typeof productCategorySchema>;
 export type UploadedAssetType = z.infer<typeof uploadedAssetTypeSchema>;
 export type GenerationMode = z.infer<typeof generationModeSchema>;
 export type ImageType = z.infer<typeof imageTypeSchema>;
-export type PersonEthnicity = z.infer<typeof personEthnicitySchema>;
+export type PersonProfile = z.infer<typeof personProfileSchema>;
+export type SeasonClimate = z.infer<typeof seasonClimateSchema>;
+export type SceneElement = z.infer<typeof sceneElementSchema>;
 export type LanguageCode = z.infer<typeof languageCodeSchema>;
 export type ComplianceStatus = z.infer<typeof complianceStatusSchema>;
 
@@ -62,21 +79,33 @@ export const imageTypeCountsSchema = z.object({
 
 export type ImageTypeCounts = z.infer<typeof imageTypeCountsSchema>;
 
-export const generationSetSchema = z.object({
+export const generationSetSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object') return value;
+  const record = value as Record<string, unknown>;
+  const legacyEthnicity = legacyPersonEthnicitySchema.safeParse(record.personEthnicity);
+  if (record.personProfile || !legacyEthnicity.success) return value;
+  return {
+    ...record,
+    personProfile: legacyPersonEthnicityToProfile[legacyEthnicity.data],
+  };
+}, z.object({
   id: z.string(),
   name: z.string(),
   mode: generationModeSchema,
-  personEthnicity: personEthnicitySchema.default('yellow'),
+  personProfile: personProfileSchema.default('southeast_asia_asian'),
+  seasonClimate: seasonClimateSchema.default('spring_autumn'),
+  sceneElements: z.array(sceneElementSchema).default(['dressing_table']),
   imageTypeCounts: imageTypeCountsSchema,
   languages: z.array(languageCodeSchema).min(1),
   commentCount: z.number().int().min(1).max(4),
-});
+}));
 
 export type GenerationSet = z.infer<typeof generationSetSchema>;
 
 export const generatedImageSchema = z.object({
   id: z.string(),
   type: imageTypeSchema,
+  sceneElement: sceneElementSchema.optional(),
   localImageKey: z.string().optional(),
   url: z.string().url().optional(),
   promptSnapshot: z.string(),
@@ -132,7 +161,9 @@ export const defaultGenerationSets = [
     id: 'set-a',
     name: '套件1',
     mode: 'image_with_comment',
-    personEthnicity: 'yellow',
+    personProfile: 'southeast_asia_asian',
+    seasonClimate: 'spring_autumn',
+    sceneElements: ['dressing_table'],
     imageTypeCounts: {
       texture_on_hand: 1,
       bathroom_vanity: 1,

@@ -23,8 +23,26 @@ for (const text of ['runComplianceChecks', "complianceStatus: 'checking'", '审�
   assert.ok(clientSource.includes(text), `BuyerShowAgentClient should defer compliance review with marker ${text}`);
 }
 
-for (const text of ['人种', '黄种人', '白种人', '黑种人', 'personEthnicity', 'updateSetPersonEthnicity']) {
-  assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite ethnicity selector marker ${text}`);
+for (const text of ['人物画像', '穆斯林黑人', '穆斯林亚洲人', '东南亚深肤', '东南亚亚洲人', '白人', 'personProfile', 'updateSetPersonProfile']) {
+  assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite person profile selector marker ${text}`);
+}
+
+for (const text of ['季节气候', '春秋', '夏季', '冬季', '热带湿热', '雨季', 'seasonClimate', 'updateSetSeasonClimate']) {
+  assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include suite season climate selector marker ${text}`);
+}
+
+for (const text of [
+  '场景元素',
+  'sceneElements',
+  'toggleSetSceneElement',
+  '拆箱',
+  '客厅',
+  '沙发',
+  '梳妆台',
+  '东南亚户外-海边',
+  '东南亚户外-城市',
+]) {
+  assert.ok(clientSource.includes(text), `BuyerShowAgentClient should include scene element marker ${text}`);
 }
 
 for (const text of ['保存状态', '载入状态', 'buyerShow.savedState.v1', 'saveSnapshotState', 'loadSnapshotState']) {
@@ -77,11 +95,18 @@ assert.ok(clientSource.includes('setClaims([])'), 'new project should clear sele
 assert.ok(clientSource.includes('setSkinTypes([])'), 'new project should clear selected skin type tags');
 assert.ok(clientSource.includes('setAssets([])'), 'new project should clear uploaded assets');
 assert.ok(clientSource.includes('setSets(createClearedGenerationSets())'), 'new project should clear suite selections');
-assert.ok(clientSource.includes("const defaultPersonEthnicity: PersonEthnicity = 'yellow'"), 'new and migrated generation suites should default person ethnicity to yellow');
+assert.ok(
+  clientSource.includes("const defaultPersonProfile: PersonProfile = 'southeast_asia_asian'"),
+  'new and migrated generation suites should default person profile to Southeast Asian Asian',
+);
 assert.ok(clientSource.includes('setResults([])'), 'new project should clear generated results');
 assert.ok(clientSource.includes('setSaveClaimAsFixed(false)'), 'new project should clear the claim fixed-tag toggle');
 assert.ok(clientSource.includes('setSaveSkinAsFixed(false)'), 'new project should clear the skin fixed-tag toggle');
 assert.ok(clientSource.includes('checked={saveAsFixed}'), 'fixed-tag toggle should be controlled so it can be reset');
+assert.ok(
+  clientSource.includes("const defaultSeasonClimate: SeasonClimate = 'spring_autumn'"),
+  'new and migrated generation suites should default season climate to spring/autumn',
+);
 assert.ok(cssSource.includes('min-width: 116px'), 'selectable chips should be a little wider');
 assert.ok(clientSource.includes('list="buyer-show-category-suggestions"'), 'category field should expose quick suggestions');
 assert.ok(clientSource.includes('normalizeCategoryForProductInfo(category)'), 'category input should normalize blank text for API payloads');
@@ -107,13 +132,28 @@ const requiredText = [
   '包装图',
   '质地图',
   '质地上手图',
-  '浴室/化妆台场景图',
+  '商品摆放场景图',
   '手持商品特写图',
   '真人自拍持产品图',
-  '人种',
-  '黄种人',
-  '白种人',
-  '黑种人',
+  '场景元素',
+  '拆箱',
+  '客厅',
+  '沙发',
+  '梳妆台',
+  '东南亚户外-海边',
+  '东南亚户外-城市',
+  '人物画像',
+  '穆斯林黑人',
+  '穆斯林亚洲人',
+  '东南亚深肤',
+  '东南亚亚洲人',
+  '白人',
+  '季节气候',
+  '春秋',
+  '夏季',
+  '冬季',
+  '热带湿热',
+  '雨季',
   '只生成评论',
   '每类生成数量',
   '共 3 张图',
@@ -166,9 +206,22 @@ const requiredPatterns = [
   [/data-image-type="bathroom_vanity"/, 'prototype should include bathroom_vanity image type'],
   [/data-image-type="handheld_product_closeup"/, 'prototype should include handheld_product_closeup image type'],
   [/data-image-type="selfie_holding_product"/, 'prototype should include selfie_holding_product image type'],
-  [/data-person-ethnicity="yellow"/, 'prototype should include yellow ethnicity option'],
-  [/data-person-ethnicity="white"/, 'prototype should include white ethnicity option'],
-  [/data-person-ethnicity="black"/, 'prototype should include black ethnicity option'],
+  [/data-scene-element="unboxing"/, 'prototype should include unboxing scene element'],
+  [/data-scene-element="living_room"/, 'prototype should include living room scene element'],
+  [/data-scene-element="sofa"/, 'prototype should include sofa scene element'],
+  [/data-scene-element="dressing_table"/, 'prototype should include dressing table scene element'],
+  [/data-scene-element="southeast_asia_seaside"/, 'prototype should include Southeast Asia seaside scene element'],
+  [/data-scene-element="southeast_asia_city"/, 'prototype should include Southeast Asia city scene element'],
+  [/data-person-profile="muslim_black"/, 'prototype should include Muslim Black profile option'],
+  [/data-person-profile="muslim_asian"/, 'prototype should include Muslim Asian profile option'],
+  [/data-person-profile="southeast_asia_deep"/, 'prototype should include Southeast Asian deep-skin profile option'],
+  [/data-person-profile="southeast_asia_asian"/, 'prototype should include Southeast Asian Asian profile option'],
+  [/data-person-profile="white"/, 'prototype should include white profile option'],
+  [/data-season-climate="spring_autumn"/, 'prototype should include spring/autumn season climate option'],
+  [/data-season-climate="summer"/, 'prototype should include summer season climate option'],
+  [/data-season-climate="winter"/, 'prototype should include winter season climate option'],
+  [/data-season-climate="tropical_humid"/, 'prototype should include tropical humid season climate option'],
+  [/data-season-climate="rainy_season"/, 'prototype should include rainy season climate option'],
   [/data-result-mode="comment_only"/, 'prototype should include a comment-only result card'],
   [/data-action="regenerate-single-image"/, 'prototype should support single-image regeneration'],
   [/data-action="recheck-comment"/, 'prototype should support comment re-check after edits'],
