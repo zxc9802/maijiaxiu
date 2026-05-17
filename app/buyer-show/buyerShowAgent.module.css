@@ -123,21 +123,101 @@
 }
 
 .historyControls {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 
-.historyControls select {
-  min-height: 38px;
-  max-width: 280px;
+.historyMenu {
+  position: relative;
+}
+
+.historyPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: min(460px, calc(100vw - 32px));
+  max-height: 520px;
+  overflow: hidden;
+  padding: 12px;
   border: 1px solid #c8d2e1;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 22px 50px rgba(20, 35, 58, 0.2);
+}
+
+.historyPanelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
   color: #1c2430;
+}
+
+.historyList {
+  display: grid;
+  gap: 8px;
+  max-height: 430px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.historyItem {
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8e2ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #122235;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historyItem:hover,
+.activeHistoryItem {
+  border-color: #0b63ce;
+  background: #eef5ff;
+}
+
+.historyItemTime {
+  color: #687486;
+  font-size: 12px;
   font-weight: 800;
-  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+.historyItem strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.historyItemMeta {
+  grid-column: 1 / -1;
+  color: #536377;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.historyEmpty {
+  padding: 18px;
+  border: 1px dashed #cbd7e7;
+  border-radius: 8px;
+  color: #687486;
+  font-weight: 700;
+  text-align: center;
 }
 
 .stateStatus {
@@ -748,6 +828,15 @@
     width: 100%;
     justify-items: stretch;
     justify-content: flex-start;
+  }
+
+  .historyMenu,
+  .historyPanel {
+    width: 100%;
+  }
+
+  .historyPanel {
+    position: static;
   }
 
   .uploadGrid,

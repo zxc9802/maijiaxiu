@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma, withPrismaRetry } from './prisma';
 import type { BuyerShowUser } from './auth';
+import { createHistoryTitle } from './history-labels';
 import type { GeneratedImage, GeneratedResult, GenerateRequest, ProductInfo } from './schemas';
 
 const HISTORY_RETENTION_DAYS = 30;
@@ -14,16 +15,6 @@ type HistoryPayload = {
 
 function addRetentionWindow(date = new Date()) {
   return new Date(date.getTime() + HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-}
-
-function createHistoryTitle(productInfo: ProductInfo) {
-  const productName = productInfo.productName?.trim();
-  if (productName) return productName.slice(0, 80);
-
-  const category = productInfo.category?.trim();
-  if (category && category !== 'unknown') return category.slice(0, 80);
-
-  return '未命名买家秀记录';
 }
 
 function isPersistentImageUrl(value: string | undefined) {
@@ -88,7 +79,12 @@ function buildHistoryData(user: BuyerShowUser, payload: HistoryPayload) {
   return {
     userId: user.userId,
     userSnapshot: toJsonValue(user),
-    title: createHistoryTitle(payload.productInfo),
+    title: createHistoryTitle({
+      productInfo: payload.productInfo,
+      generationSets: payload.generationSets,
+      results,
+      status,
+    }),
     productName: payload.productInfo.productName?.trim() || null,
     category: payload.productInfo.category || null,
     productInfo: toJsonValue(payload.productInfo),

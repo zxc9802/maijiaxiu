@@ -22,6 +22,7 @@ import {
   type UploadedAsset,
   type UploadedAssetType,
 } from '@/lib/buyer-show/schemas';
+import { formatHistoryDisplayTitle, formatHistoryMeta, getHistoryMeta } from '@/lib/buyer-show/history-labels';
 import styles from './buyerShowAgent.module.css';
 
 const defaultFixedTags = {
@@ -555,6 +556,14 @@ function formatSnapshotTime(savedAt: string) {
   });
 }
 
+function formatHistoryItemMeta(item: BuyerShowHistoryItem) {
+  return formatHistoryMeta(getHistoryMeta(item));
+}
+
+function formatHistoryItemTitle(item: BuyerShowHistoryItem) {
+  return formatHistoryDisplayTitle(item);
+}
+
 function getImageSource(image: GeneratedImage) {
   if (image.url) return image.url;
   if (image.localImageKey?.startsWith('data:') || image.localImageKey?.startsWith('blob:')) return image.localImageKey;
@@ -742,6 +751,7 @@ export default function BuyerShowAgentClient() {
   const [historyId, setHistoryId] = useState<string | undefined>();
   const [historyItems, setHistoryItems] = useState<BuyerShowHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | undefined>();
   const [generationStatus, setGenerationStatus] = useState<string | undefined>();
@@ -918,6 +928,7 @@ export default function BuyerShowAgentClient() {
       setSets(cloneGenerationSets(response.item.generationSets));
       setResults(response.item.results);
       setHistoryId(response.item.id);
+      setIsHistoryPanelOpen(false);
       setGenerationError(undefined);
       setPreviewImage(undefined);
       setSnapshotStatus(`已载入云端历史 ${formatSnapshotTime(response.item.updatedAt)}`);
@@ -1593,23 +1604,50 @@ export default function BuyerShowAgentClient() {
               </button>
             </div>
             <div className={styles.historyControls}>
-              <select
-                aria-label="云端历史"
-                data-action="load-history"
-                disabled={isHistoryLoading || !historyItems.length}
-                onChange={(event) => void loadHistoryItem(event.target.value)}
-                value={historyId ?? ''}
-              >
-                <option value="">{isHistoryLoading ? '历史加载中' : '云端历史'}</option>
-                {historyItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {formatSnapshotTime(item.updatedAt)} · {item.title}
-                  </option>
-                ))}
-              </select>
-              <button className={styles.secondaryButton} data-action="refresh-history" onClick={() => void loadHistoryItems()} type="button">
-                刷新历史
-              </button>
+              <div className={styles.historyMenu}>
+                <button
+                  aria-controls="buyer-show-history-panel"
+                  aria-expanded={isHistoryPanelOpen}
+                  className={styles.secondaryButton}
+                  data-action="toggle-history-panel"
+                  onClick={() => {
+                    if (!isHistoryPanelOpen) void loadHistoryItems();
+                    setIsHistoryPanelOpen((current) => !current);
+                  }}
+                  type="button"
+                >
+                  云端历史{historyItems.length ? ` ${historyItems.length}` : ''}
+                </button>
+                {isHistoryPanelOpen ? (
+                  <div aria-label="云端历史" className={styles.historyPanel} id="buyer-show-history-panel" role="dialog">
+                    <div className={styles.historyPanelHead}>
+                      <strong>云端历史</strong>
+                      <button className={styles.secondaryButton} data-action="refresh-history" onClick={() => void loadHistoryItems()} type="button">
+                        刷新
+                      </button>
+                    </div>
+                    <div className={styles.historyList}>
+                      {isHistoryLoading ? <div className={styles.historyEmpty}>历史加载中</div> : null}
+                      {!isHistoryLoading && historyItems.length
+                        ? historyItems.map((item) => (
+                            <button
+                              className={`${styles.historyItem} ${historyId === item.id ? styles.activeHistoryItem : ''}`}
+                              data-action="load-history"
+                              key={item.id}
+                              onClick={() => void loadHistoryItem(item.id)}
+                              type="button"
+                            >
+                              <span className={styles.historyItemTime}>{formatSnapshotTime(item.updatedAt)}</span>
+                              <strong>{formatHistoryItemTitle(item)}</strong>
+                              <span className={styles.historyItemMeta}>{formatHistoryItemMeta(item)}</span>
+                            </button>
+                          ))
+                        : null}
+                      {!isHistoryLoading && !historyItems.length ? <div className={styles.historyEmpty}>暂无云端历史</div> : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <button className={styles.secondaryButton} data-action="save-cloud-history" disabled={!results.length} onClick={() => void persistCurrentHistory()} type="button">
                 保存云端历史
               </button>
