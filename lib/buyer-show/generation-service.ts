@@ -39,6 +39,8 @@ type InferredProductInfoJson = {
   avoidTerms?: string[];
 };
 
+type ImageGenerationLimiter = <T>(operation: () => Promise<T>) => Promise<T>;
+
 export async function generateBuyerShowResults(input: GenerateRequest): Promise<GeneratedResult[]> {
   const request = generateRequestSchema.parse(input);
   const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
@@ -52,29 +54,23 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
         set.mode === 'image_with_comment'
           ? Promise.all(
               imageRequestsToGenerate.map(async ({ type, sceneElement }, index) => {
-                const prompt = buildImagePrompt(
+                return generateImageWithFallback({
+                  id: `${set.id}-image-${index + 1}`,
                   productInfo,
                   type,
-                  set.personProfile,
                   sceneElement,
-                  set.seasonClimate,
-                  setIndex + index,
-                  set.personGender,
-                );
-                const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
-                return {
-                  id: `${set.id}-image-${index + 1}`,
-                  type,
-                  sceneElement,
-                  url: generated.url,
-                  localImageKey: generated.b64Json ? `data:image/png;base64,${generated.b64Json}` : undefined,
-                  promptSnapshot: prompt,
-                };
+                  personProfile: set.personProfile,
+                  seasonClimate: set.seasonClimate,
+                  poseSeed: setIndex + index,
+                  personGender: set.personGender,
+                  imageUrls,
+                  imageGenerationLimiter,
+                });
               }),
             )
           : Promise.resolve([]);
       const commentGenerationPromise = Promise.all(
-        set.languages.map((language) => generateCommentForLanguage(productInfo, language, set.id)),
+        set.languages.map((language) => generateCommentWithFallback(productInfo, language, set.id)),
       );
       const [images, comments] = await Promise.all([imageGenerationPromise, commentGenerationPromise]);
 
@@ -89,6 +85,100 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
       };
     }),
   );
+}
+
+async function generateImageWithFallback({
+  id,
+  productInfo,
+  type,
+  sceneElement,
+  personProfile,
+  seasonClimate,
+  poseSeed,
+  personGender,
+  imageUrls,
+  imageGenerationLimiter,
+}: {
+  id: string;
+  productInfo: ProductInfo;
+  type: ImageType;
+  sceneElement: SceneElement;
+  personProfile: PersonProfile;
+  seasonClimate: SeasonClimate;
+  poseSeed: number;
+  personGender: PersonGender;
+  imageUrls: string[];
+  imageGenerationLimiter: ImageGenerationLimiter;
+}) {
+  const prompt = buildImagePrompt(productInfo, type, personProfile, sceneElement, seasonClimate, poseSeed, personGender);
+
+  try {
+    const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
+    return {
+      id,
+      type,
+      sceneElement,
+      url: generated.url,
+      localImageKey: generated.b64Json ? `data:image/png;base64,${generated.b64Json}` : undefined,
+      promptSnapshot: prompt,
+    } satisfies GeneratedImage;
+  } catch (error) {
+    console.error('[buyer-show-generation] Image generation failed', { id, type, sceneElement, error });
+    return createFailedImagePlaceholder(id, type, sceneElement, prompt, error);
+  }
+}
+
+async function generateCommentWithFallback(productInfo: ProductInfo, language: LanguageCode, setId: string) {
+  try {
+    return await generateCommentForLanguage(productInfo, language, setId);
+  } catch (error) {
+    console.error('[buyer-show-generation] Comment generation failed', { setId, language, error });
+    return createFailedCommentPlaceholder(productInfo, language, setId, error);
+  }
+}
+
+function createFailedImagePlaceholder(
+  id: string,
+  type: ImageType,
+  sceneElement: SceneElement,
+  prompt: string,
+  error: unknown,
+): GeneratedImage {
+  return {
+    id,
+    type,
+    sceneElement,
+    generationStatus: 'failed',
+    generationError: toSafeGenerationError(error, '图片生成失败，可单独重新生成'),
+    promptSnapshot: prompt,
+  };
+}
+
+function createFailedCommentPlaceholder(
+  productInfo: ProductInfo,
+  language: LanguageCode,
+  setId: string,
+  error: unknown,
+): GeneratedComment {
+  const prompt = buildHumanizedCommentPrompt(productInfo, language);
+  const generationError = toSafeGenerationError(error, '评论生成失败，可单独重新生成');
+
+  return {
+    id: `${setId}-${language}`,
+    language,
+    text: '评论生成失败，可点击“重生成评论”单独重试。',
+    tone: 'real_user',
+    generationStatus: 'failed',
+    generationError,
+    complianceStatus: 'needs_review',
+    complianceReasons: [`评论生成失败：${generationError}`],
+    promptSnapshot: prompt,
+  };
+}
+
+function toSafeGenerationError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : '';
+  return (message || fallback).replace(/\s+/g, ' ').trim().slice(0, 240) || fallback;
 }
 
 function createConcurrencyLimiter(limit: number) {
@@ -143,23 +233,24 @@ export async function completeMissingProductInfo(productInfo: ProductInfo, asset
     'Use modest, platform-safe wording. Do not invent medical efficacy claims.',
   ].join('\n');
 
-  const response = await createChatCompletion(
-    [
-      { role: 'system', content: 'You are a strict product information JSON API. Return valid JSON only.' },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
-        ],
-      },
-    ],
-    { maxTokens: 1200, temperature: 0.1 },
-  );
-
   try {
+    const response = await createChatCompletion(
+      [
+        { role: 'system', content: 'You are a strict product information JSON API. Return valid JSON only.' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
+          ],
+        },
+      ],
+      { maxTokens: 1200, temperature: 0.1 },
+    );
+
     return mergeInferredProductInfo(productInfo, parseJsonObject<InferredProductInfoJson>(response));
-  } catch {
+  } catch (error) {
+    console.error('[buyer-show-generation] Product info inference failed', error);
     return productInfo;
   }
 }

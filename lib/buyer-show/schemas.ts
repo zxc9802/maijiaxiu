@@ -36,6 +36,7 @@ export const sceneElementSchema = z.enum([
 ]);
 export const languageCodeSchema = z.enum(['zh-CN', 'en-US', 'th-TH', 'ms-MY']);
 export const complianceStatusSchema = z.enum(['checking', 'passed', 'needs_review']);
+export const generationStatusSchema = z.enum(['completed', 'failed']);
 
 export type ProductInfoSource = z.infer<typeof productInfoSourceSchema>;
 export type ProductCategory = z.infer<typeof productCategorySchema>;
@@ -48,6 +49,7 @@ export type SeasonClimate = z.infer<typeof seasonClimateSchema>;
 export type SceneElement = z.infer<typeof sceneElementSchema>;
 export type LanguageCode = z.infer<typeof languageCodeSchema>;
 export type ComplianceStatus = z.infer<typeof complianceStatusSchema>;
+export type GenerationStatus = z.infer<typeof generationStatusSchema>;
 
 export const productInfoSchema = z.object({
   productName: z.string().optional(),
@@ -111,6 +113,8 @@ export const generatedImageSchema = z.object({
   sceneElement: sceneElementSchema.optional(),
   localImageKey: z.string().optional(),
   url: z.string().url().optional(),
+  generationStatus: generationStatusSchema.optional(),
+  generationError: z.string().optional(),
   promptSnapshot: z.string(),
 });
 
@@ -121,6 +125,8 @@ export const generatedCommentSchema = z.object({
   language: languageCodeSchema,
   text: z.string(),
   tone: z.literal('real_user').default('real_user'),
+  generationStatus: generationStatusSchema.optional(),
+  generationError: z.string().optional(),
   complianceStatus: complianceStatusSchema,
   complianceReasons: z.array(z.string()).default([]),
   rewriteSuggestion: z.string().optional(),

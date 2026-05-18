@@ -1385,18 +1385,24 @@ export default function BuyerShowAgentClient() {
 
       if (!response.ok) throw new Error(response.error);
 
+      const regeneratedComment = {
+        ...response.comment,
+        generationStatus: 'completed' as const,
+        generationError: undefined,
+      };
+
       setResults((current) => {
         const nextResults = current.map((result) =>
           result.id === resultId
             ? {
                 ...result,
-                comments: result.comments.map((item) => (item.id === comment.id ? response.comment : item)),
+                comments: result.comments.map((item) => (item.id === comment.id ? regeneratedComment : item)),
               }
             : result,
         );
         return nextResults;
       });
-      void runComplianceChecks([{ id: resultId, comments: [response.comment] }]);
+      void runComplianceChecks([{ id: resultId, comments: [regeneratedComment] }]);
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : '重生成评论失败');
     }
@@ -1440,6 +1446,8 @@ export default function BuyerShowAgentClient() {
                         localImageKey: response.image.b64Json
                           ? `data:image/png;base64,${response.image.b64Json}`
                           : response.image.localImageKey,
+                        generationStatus: 'completed' as const,
+                        generationError: undefined,
                         promptSnapshot: response.image.promptSnapshot ?? item.promptSnapshot,
                       }
                     : item,
@@ -2158,17 +2166,22 @@ function ResultImageFrame({
   onRegenerate: () => void;
 }) {
   const imageSource = getImageSource(image);
+  const isFailedPlaceholder = image.generationStatus === 'failed' && !imageSource;
 
   return (
     <div className={styles.smallThumb}>
       <button className={styles.imagePreviewButton} onClick={onPreview} type="button">
-        {imageSource ? <img alt={imageTypeLabels[image.type]} src={imageSource} /> : <span>{imageTypeLabels[image.type]}</span>}
+        {imageSource ? (
+          <img alt={imageTypeLabels[image.type]} src={imageSource} />
+        ) : (
+          <span>{isFailedPlaceholder ? '生成失败，可重试' : imageTypeLabels[image.type]}</span>
+        )}
       </button>
       <div className={styles.imageActionGroup}>
         <button className={styles.imageAction} data-action="regenerate-single-image" onClick={onRegenerate} type="button">
           重生成单图
         </button>
-        <button className={styles.imageAction} onClick={onDownload} type="button">
+        <button className={styles.imageAction} disabled={!imageSource} onClick={onDownload} type="button">
           下载图片
         </button>
       </div>
