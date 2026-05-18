@@ -24,6 +24,11 @@ assert.ok(imageProvider.includes('const maxImageProviderAttempts = 5'), 'image p
 assert.ok(imageProvider.includes('buildAlternatingImageProviderAttempts'), 'image provider should alternate Yunwu and XAI attempts');
 assert.ok(imageProvider.includes("name: 'yunwu'"), 'image provider should include Yunwu as the primary image provider');
 assert.ok(imageProvider.includes("name: 'xai'"), 'image provider should include XAI as the fallback image provider');
+const yunwuGeneratorBlock = imageProvider.match(/async function requestYunwuImageGeneration[\s\S]*?^}/m)?.[0] ?? '';
+assert.ok(
+  yunwuGeneratorBlock.includes('input.imageUrls?.length') && yunwuGeneratorBlock.includes('requestImageEdit(input, provider)'),
+  'Yunwu reference-image generation should use the image edit endpoint instead of text-only generations',
+);
 assert.ok(imageProvider.includes('requestXaiImageGeneration'), 'image provider should call the XAI image provider');
 assert.ok(imageProvider.includes('stream: true'), 'XAI text-to-image generation should use streaming to avoid gateway disconnects');
 assert.ok(imageProvider.includes('readStreamedImageB64Json'), 'image provider should parse streamed XAI image responses');

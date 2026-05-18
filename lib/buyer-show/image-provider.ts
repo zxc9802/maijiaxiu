@@ -98,6 +98,10 @@ async function requestYunwuImageGeneration(
   input: ImageGenerationInput,
   provider: ImageProviderConfig,
 ): Promise<GeneratedProviderImage> {
+  if (input.imageUrls?.length) {
+    return requestImageEdit(input, provider);
+  }
+
   const response = await requestJsonImageGeneration({
     url: buildProviderUrl(provider.baseUrl, '/images/generations'),
     apiKey: requireProviderSecret(provider.apiKey, provider.apiKeyEnvName),
@@ -118,7 +122,7 @@ async function requestXaiImageGeneration(
   provider: ImageProviderConfig,
 ): Promise<GeneratedProviderImage> {
   if (input.imageUrls?.length) {
-    return requestXaiImageEdit(input, provider);
+    return requestImageEdit(input, provider);
   }
 
   const response = await requestJsonImageGeneration({
@@ -145,7 +149,7 @@ async function requestXaiImageGeneration(
   };
 }
 
-async function requestXaiImageEdit(input: ImageGenerationInput, provider: ImageProviderConfig): Promise<GeneratedProviderImage> {
+async function requestImageEdit(input: ImageGenerationInput, provider: ImageProviderConfig): Promise<GeneratedProviderImage> {
   const apiKey = requireProviderSecret(provider.apiKey, provider.apiKeyEnvName);
   const form = new FormData();
   form.append('model', provider.model);
