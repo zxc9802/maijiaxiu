@@ -132,7 +132,7 @@ type BuyerShowHistoryItem = {
 
 type BuyerShowGenerationJob = {
   id: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'canceled';
   progress: number;
   productInfo?: ProductInfo;
   results?: GeneratedResult[];
@@ -697,6 +697,7 @@ function getGenerationJobMessage(job: BuyerShowGenerationJob) {
   if (job.status === 'queued') return '生成任务已提交，正在排队...';
   if (job.status === 'processing') return `后台生成中 ${Math.max(5, Math.min(99, job.progress))}%`;
   if (job.status === 'completed') return '生成完成，正在整理结果...';
+  if (job.status === 'canceled') return '已停止生成，正在展示已完成结果...';
   return '生成失败';
 }
 
@@ -758,6 +759,7 @@ export default function BuyerShowAgentClient() {
   const [previewImage, setPreviewImage] = useState<GeneratedImage | undefined>();
   const [snapshotStatus, setSnapshotStatus] = useState<string | undefined>();
   const generationRequestIdRef = useRef(0);
+  const currentGenerationJobIdRef = useRef<string | undefined>(undefined);
   const pendingAssetUploadsRef = useRef(new Map<string, Promise<AssetUploadCompletion>>());
 
   useEffect(() => {
@@ -959,6 +961,7 @@ export default function BuyerShowAgentClient() {
 
   function handleNewProject() {
     generationRequestIdRef.current += 1;
+    currentGenerationJobIdRef.current = undefined;
     setProductName('');
     setCategory('');
     setUsageFeel('');
@@ -1293,6 +1296,61 @@ export default function BuyerShowAgentClient() {
     );
   }
 
+  async function requestGenerationJobCancel(jobId: string) {
+    const response = await postJson<{ ok: true; job: BuyerShowGenerationJob } | { ok: false; error: string }>(
+      `/api/buyer-show/generate/${encodeURIComponent(jobId)}/cancel`,
+      {},
+    );
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    return response.job;
+  }
+
+  function applyCanceledGenerationJob(canceledJob: BuyerShowGenerationJob, requestId: number) {
+    if (canceledJob.productInfo) {
+      applyProductInfo(canceledJob.productInfo);
+    }
+
+    if (canceledJob.results?.length) {
+      setResults(canceledJob.results);
+      setSnapshotStatus('已停止生成，已展示当前已完成结果');
+      void runComplianceChecks(canceledJob.results, requestId);
+    } else {
+      setSnapshotStatus('已停止生成，暂无已完成结果');
+    }
+
+    setGenerationStatus(undefined);
+    setGenerationError(undefined);
+  }
+
+  async function stopGeneration() {
+    const jobId = currentGenerationJobIdRef.current;
+    const requestId = generationRequestIdRef.current + 1;
+    generationRequestIdRef.current = requestId;
+    setIsGenerating(false);
+    setGenerationError(undefined);
+    setGenerationStatus('正在停止生成，保留已完成结果...');
+
+    if (!jobId) {
+      currentGenerationJobIdRef.current = undefined;
+      setGenerationStatus(undefined);
+      setSnapshotStatus('已停止生成，后台任务尚未创建');
+      return;
+    }
+
+    try {
+      const canceledJob = await requestGenerationJobCancel(jobId);
+      currentGenerationJobIdRef.current = undefined;
+      applyCanceledGenerationJob(canceledJob, requestId);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : '停止生成失败，请稍后重试');
+      setGenerationStatus(undefined);
+    }
+  }
+
   async function generateResults() {
     const requestId = generationRequestIdRef.current + 1;
     generationRequestIdRef.current = requestId;
@@ -1319,9 +1377,21 @@ export default function BuyerShowAgentClient() {
         throw new Error(response.error);
       }
 
+      currentGenerationJobIdRef.current = response.jobId;
+      if (generationRequestIdRef.current !== requestId) {
+        const canceledJob = await requestGenerationJobCancel(response.jobId);
+        applyCanceledGenerationJob(canceledJob, generationRequestIdRef.current);
+        return;
+      }
+
       setGenerationStatus(getGenerationJobMessage(response.job));
       const completedJob = await pollGenerationJob(response.jobId, requestId);
       if (generationRequestIdRef.current !== requestId) return;
+
+      if (completedJob.status === 'canceled') {
+        applyCanceledGenerationJob(completedJob, requestId);
+        return;
+      }
 
       if (completedJob.productInfo) {
         applyProductInfo(completedJob.productInfo);
@@ -1337,6 +1407,7 @@ export default function BuyerShowAgentClient() {
       }
     } finally {
       if (generationRequestIdRef.current === requestId) {
+        currentGenerationJobIdRef.current = undefined;
         setIsGenerating(false);
       }
     }
@@ -1357,6 +1428,10 @@ export default function BuyerShowAgentClient() {
       setGenerationStatus(getGenerationJobMessage(response.job));
 
       if (response.job.status === 'completed') {
+        return response.job;
+      }
+
+      if (response.job.status === 'canceled') {
         return response.job;
       }
 
@@ -2106,9 +2181,16 @@ export default function BuyerShowAgentClient() {
           <span className={styles.subtle}>
             {sets.length} 个套件，共 {totalCommentCount} 条多语言评论。上传图和生成图优先保存在用户浏览器本地。
           </span>
-          <button className={styles.primaryButton} disabled={isGenerating} onClick={generateResults}>
-            {isGenerating ? '生成中...' : '开始生成'}
-          </button>
+          <div className={styles.footerActions}>
+            {isGenerating ? (
+              <button className={styles.dangerButton} data-action="stop-generation" onClick={stopGeneration} type="button">
+                停止生成
+              </button>
+            ) : null}
+            <button className={styles.primaryButton} disabled={isGenerating} onClick={generateResults} type="button">
+              {isGenerating ? '生成中...' : '开始生成'}
+            </button>
+          </div>
         </footer>
       </main>
     </div>

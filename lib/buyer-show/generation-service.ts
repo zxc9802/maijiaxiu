@@ -41,11 +41,20 @@ type InferredProductInfoJson = {
 
 type ImageGenerationLimiter = <T>(operation: () => Promise<T>) => Promise<T>;
 
-export async function generateBuyerShowResults(input: GenerateRequest): Promise<GeneratedResult[]> {
+export type GenerateBuyerShowResultsOptions = {
+  shouldStop?: () => boolean | Promise<boolean>;
+  onPartialResults?: (results: GeneratedResult[], productInfo: ProductInfo) => void | Promise<void>;
+};
+
+export async function generateBuyerShowResults(input: GenerateRequest, options: GenerateBuyerShowResultsOptions = {}): Promise<GeneratedResult[]> {
   const request = generateRequestSchema.parse(input);
   const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
   const imageUrls = await resolveUploadedAssetImageUrls(request.assets);
   const imageGenerationLimiter = createConcurrencyLimiter(2);
+
+  if (options.shouldStop || options.onPartialResults) {
+    return generateBuyerShowResultsIncrementally(request, productInfo, imageUrls, imageGenerationLimiter, options);
+  }
 
   return Promise.all(
     request.generationSets.map(async (set, setIndex) => {
@@ -85,6 +94,95 @@ export async function generateBuyerShowResults(input: GenerateRequest): Promise<
       };
     }),
   );
+}
+
+async function generateBuyerShowResultsIncrementally(
+  request: GenerateRequest,
+  productInfo: ProductInfo,
+  imageUrls: string[],
+  imageGenerationLimiter: ImageGenerationLimiter,
+  options: GenerateBuyerShowResultsOptions,
+) {
+  const results: GeneratedResult[] = [];
+
+  for (const [setIndex, set] of request.generationSets.entries()) {
+    if (await shouldStopGeneration(options)) break;
+
+    const imageRequestsToGenerate = expandImageRequests(set.imageTypeCounts, set.sceneElements);
+    const result: GeneratedResult = {
+      id: `result-${set.id}`,
+      setId: set.id,
+      setName: set.name,
+      mode: set.mode,
+      images: [],
+      comments: [],
+      createdAt: new Date().toISOString(),
+    };
+    let resultHasGeneratedContent = false;
+
+    function ensureResultIsVisible() {
+      if (resultHasGeneratedContent) return;
+      results.push(result);
+      resultHasGeneratedContent = true;
+    }
+
+    if (set.mode === 'image_with_comment') {
+      for (const [index, { type, sceneElement }] of imageRequestsToGenerate.entries()) {
+        if (await shouldStopGeneration(options)) break;
+
+        const image = await generateImageWithFallback({
+          id: `${set.id}-image-${index + 1}`,
+          productInfo,
+          type,
+          sceneElement,
+          personProfile: set.personProfile,
+          seasonClimate: set.seasonClimate,
+          poseSeed: setIndex + index,
+          personGender: set.personGender,
+          imageUrls,
+          imageGenerationLimiter,
+        });
+        result.images.push(image);
+        ensureResultIsVisible();
+        await publishPartialResults(options, results, productInfo);
+      }
+    }
+
+    for (const language of set.languages) {
+      if (await shouldStopGeneration(options)) break;
+
+      const comment = await generateCommentWithFallback(productInfo, language, set.id);
+      result.comments.push(comment);
+      ensureResultIsVisible();
+      await publishPartialResults(options, results, productInfo);
+    }
+  }
+
+  return cloneGeneratedResults(results);
+}
+
+async function shouldStopGeneration(options: GenerateBuyerShowResultsOptions) {
+  return Boolean(await options.shouldStop?.());
+}
+
+async function publishPartialResults(
+  options: GenerateBuyerShowResultsOptions,
+  results: GeneratedResult[],
+  productInfo: ProductInfo,
+) {
+  if (!options.onPartialResults) return;
+  await options.onPartialResults(cloneGeneratedResults(results), productInfo);
+}
+
+function cloneGeneratedResults(results: GeneratedResult[]) {
+  return results.map((result) => ({
+    ...result,
+    images: result.images.map((image) => ({ ...image })),
+    comments: result.comments.map((comment) => ({
+      ...comment,
+      complianceReasons: [...comment.complianceReasons],
+    })),
+  }));
 }
 
 async function generateImageWithFallback({

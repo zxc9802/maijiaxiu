@@ -736,6 +736,13 @@
   backdrop-filter: blur(14px);
 }
 
+.footerActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .previewOverlay {
   position: fixed;
   inset: 0;

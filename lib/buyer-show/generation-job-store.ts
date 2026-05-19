@@ -4,7 +4,7 @@ import { withPrismaRetry } from './prisma';
 import { generateRequestSchema, type GeneratedResult, type GenerateRequest, type ProductInfo } from './schemas';
 import type { BuyerShowUser } from './auth';
 
-export type BuyerShowGenerationJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type BuyerShowGenerationJobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'canceled';
 
 export type BuyerShowGenerationJobSnapshot = {
   id: string;
@@ -71,7 +71,7 @@ function serializeGenerationJob(record: GenerationJobRecord): BuyerShowGeneratio
 }
 
 function normalizeGenerationJobStatus(status: string): BuyerShowGenerationJobStatus {
-  if (status === 'processing' || status === 'completed' || status === 'failed') return status;
+  if (status === 'processing' || status === 'completed' || status === 'failed' || status === 'canceled') return status;
   return 'queued';
 }
 
@@ -111,6 +111,60 @@ export async function getBuyerShowGenerationJob(user: BuyerShowUser, jobId: stri
 
     return job ? serializeGenerationJob(job) : null;
   });
+}
+
+export async function cancelBuyerShowGenerationJob(user: BuyerShowUser, jobId: string) {
+  return withPrismaRetry(async (client) => {
+    const job = await client.buyerShowGenerationJob.findFirst({
+      where: {
+        id: jobId,
+        userId: user.userId,
+      },
+    });
+
+    if (!job) return null;
+
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'canceled') {
+      return serializeGenerationJob(job);
+    }
+
+    const canceledJob = await client.buyerShowGenerationJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'canceled',
+        error: null,
+        finishedAt: new Date(),
+      },
+    });
+
+    return serializeGenerationJob(canceledJob);
+  });
+}
+
+export async function shouldCancelGenerationJob(jobId: string) {
+  return withPrismaRetry(async (client) => {
+    const job = await client.buyerShowGenerationJob.findUnique({
+      where: { id: jobId },
+      select: { status: true },
+    });
+
+    return job?.status === 'canceled';
+  });
+}
+
+export async function persistPartialGenerationResults(jobId: string, productInfo: ProductInfo, results: GeneratedResult[]) {
+  await withPrismaRetry((client) =>
+    client.buyerShowGenerationJob.updateMany({
+      where: {
+        id: jobId,
+        status: { in: ['processing', 'canceled'] },
+      },
+      data: {
+        productInfo: toJsonValue(productInfo),
+        results: toJsonValue(results),
+      },
+    }),
+  );
 }
 
 export function scheduleBuyerShowGenerationJob(jobId: string) {
@@ -154,7 +208,30 @@ export async function runBuyerShowGenerationJob(jobId: string) {
     const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
 
     await updateJobProgress(jobId, 35);
-    const results = await generateBuyerShowResults({ ...request, productInfo });
+    const results = await generateBuyerShowResults(
+      { ...request, productInfo },
+      {
+        shouldStop: () => shouldCancelGenerationJob(jobId),
+        onPartialResults: (partialResults, currentProductInfo) =>
+          persistPartialGenerationResults(jobId, currentProductInfo, partialResults),
+      },
+    );
+
+    if (await shouldCancelGenerationJob(jobId)) {
+      await withPrismaRetry((client) =>
+        client.buyerShowGenerationJob.update({
+          where: { id: jobId },
+          data: {
+            status: 'canceled',
+            productInfo: toJsonValue(productInfo),
+            results: toJsonValue(results),
+            error: null,
+            finishedAt: new Date(),
+          },
+        }),
+      );
+      return;
+    }
 
     await updateJobProgress(jobId, 85);
     await withPrismaRetry((client) =>
@@ -172,6 +249,20 @@ export async function runBuyerShowGenerationJob(jobId: string) {
       }),
     );
   } catch (error) {
+    if (await shouldCancelGenerationJob(jobId)) {
+      await withPrismaRetry((client) =>
+        client.buyerShowGenerationJob.update({
+          where: { id: jobId },
+          data: {
+            status: 'canceled',
+            error: null,
+            finishedAt: new Date(),
+          },
+        }),
+      );
+      return;
+    }
+
     await withPrismaRetry((client) =>
       client.buyerShowGenerationJob.update({
         where: { id: jobId },
