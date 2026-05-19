@@ -41,6 +41,10 @@ type InferredProductInfoJson = {
 
 type ImageGenerationLimiter = <T>(operation: () => Promise<T>) => Promise<T>;
 
+export type ImagePromptReferenceContext = {
+  hasPackageAsset?: boolean;
+};
+
 export type GenerateBuyerShowResultsOptions = {
   shouldStop?: () => boolean | Promise<boolean>;
   onPartialResults?: (results: GeneratedResult[], productInfo: ProductInfo) => void | Promise<void>;
@@ -50,10 +54,11 @@ export async function generateBuyerShowResults(input: GenerateRequest, options: 
   const request = generateRequestSchema.parse(input);
   const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
   const imageUrls = await resolveUploadedAssetImageUrls(request.assets);
+  const hasPackageAsset = hasUploadedPackageAsset(request.assets);
   const imageGenerationLimiter = createConcurrencyLimiter(2);
 
   if (options.shouldStop || options.onPartialResults) {
-    return generateBuyerShowResultsIncrementally(request, productInfo, imageUrls, imageGenerationLimiter, options);
+    return generateBuyerShowResultsIncrementally(request, productInfo, imageUrls, hasPackageAsset, imageGenerationLimiter, options);
   }
 
   return Promise.all(
@@ -73,6 +78,7 @@ export async function generateBuyerShowResults(input: GenerateRequest, options: 
                   poseSeed: setIndex + index,
                   personGender: set.personGender,
                   imageUrls,
+                  hasPackageAsset,
                   imageGenerationLimiter,
                 });
               }),
@@ -100,6 +106,7 @@ async function generateBuyerShowResultsIncrementally(
   request: GenerateRequest,
   productInfo: ProductInfo,
   imageUrls: string[],
+  hasPackageAsset: boolean,
   imageGenerationLimiter: ImageGenerationLimiter,
   options: GenerateBuyerShowResultsOptions,
 ) {
@@ -140,6 +147,7 @@ async function generateBuyerShowResultsIncrementally(
           poseSeed: setIndex + index,
           personGender: set.personGender,
           imageUrls,
+          hasPackageAsset,
           imageGenerationLimiter,
         });
         result.images.push(image);
@@ -195,6 +203,7 @@ async function generateImageWithFallback({
   poseSeed,
   personGender,
   imageUrls,
+  hasPackageAsset,
   imageGenerationLimiter,
 }: {
   id: string;
@@ -206,9 +215,12 @@ async function generateImageWithFallback({
   poseSeed: number;
   personGender: PersonGender;
   imageUrls: string[];
+  hasPackageAsset: boolean;
   imageGenerationLimiter: ImageGenerationLimiter;
 }) {
-  const prompt = buildImagePrompt(productInfo, type, personProfile, sceneElement, seasonClimate, poseSeed, personGender);
+  const prompt = buildImagePrompt(productInfo, type, personProfile, sceneElement, seasonClimate, poseSeed, personGender, {
+    hasPackageAsset,
+  });
 
   try {
     const generated = await imageGenerationLimiter(() => generateBuyerShowImage({ prompt, imageUrls, imageType: type }));
@@ -449,6 +461,10 @@ export async function resolveUploadedAssetImageUrls(assets: UploadedAsset[]) {
   return urls.filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
 }
 
+export function hasUploadedPackageAsset(assets: UploadedAsset[]) {
+  return assets.some((asset) => asset.type === 'package');
+}
+
 function mergeInferredProductInfo(productInfo: ProductInfo, inferred: InferredProductInfoJson): ProductInfo {
   const hasManualInfo = Boolean(
     productInfo.productName?.trim() ||
@@ -504,28 +520,23 @@ export function buildImagePrompt(
   seasonClimate: SeasonClimate = 'spring_autumn',
   poseSeed = 0,
   personGender: PersonGender = 'female',
+  referenceContext: ImagePromptReferenceContext = {},
 ) {
-  const typeInstruction: Record<ImageType, string> = {
-    texture_on_hand:
-      'Create an amateur smartphone photo of a real customer showing the product texture on a hand or wrist, with the product packaging nearby if available.',
-    bathroom_vanity:
-      'Create an amateur smartphone product-only placement photo of the product naturally placed in the selected everyday scene, with no visible people, no hands, no faces, no arms, no body parts, and no mirror reflection of a person.',
-    handheld_product_closeup:
-      'Create an amateur smartphone tight close-up of one hand naturally holding the product, front label facing the camera, with the product packaging as the main subject; not a selfie, no full person, no face.',
-    selfie_holding_product:
-      'Create an amateur smartphone photo of a real customer holding the product in a casual selfie style, full face allowed when natural for the selected scene.',
-  };
+  const hasPackageAsset = referenceContext.hasPackageAsset ?? false;
+  const typeInstruction = buildImageTypeInstruction(hasPackageAsset);
 
-  const sceneInstruction = buildImageTypeSceneGuidance(imageType, sceneElement);
-  const sceneElementInstruction = buildSceneElementPromptGuidance(imageType, sceneElement);
+  const sceneInstruction = buildImageTypeSceneGuidance(imageType, sceneElement, hasPackageAsset);
+  const sceneElementInstruction = buildSceneElementPromptGuidance(imageType, sceneElement, hasPackageAsset);
   const effectiveSeasonClimate = resolveEffectiveSeasonClimate(sceneElement, seasonClimate);
 
   const personProfileGuidance = imageType === 'bathroom_vanity' ? '' : buildPersonProfilePromptGuidance(personProfile);
   const personGenderGuidance = imageType === 'bathroom_vanity' ? '' : buildPersonGenderPromptGuidance(personGender);
   const seasonClimateGuidance = buildSeasonClimatePromptGuidance(effectiveSeasonClimate, sceneElement, seasonClimate);
   const promptFusionGuidance = buildPromptFusionGuidance(imageType, personProfile, personGender, sceneElement, effectiveSeasonClimate);
-  const realismDetailsGuidance = buildRealismDetailsGuidance(imageType);
-  const poseVariantGuidance = buildPoseVariantPromptGuidance(imageType, poseSeed);
+  const poseVariantGuidance = buildPoseVariantPromptGuidance(imageType, poseSeed, hasPackageAsset);
+  const realismDetailsGuidance = buildRealismDetailsGuidance(imageType, hasPackageAsset);
+  const productReferenceGuidance = buildProductReferencePromptGuidance(hasPackageAsset);
+  const packageReferenceGuidance = buildPackageReferencePromptGuidance(sceneElement, hasPackageAsset);
 
   return [
     typeInstruction[imageType],
@@ -540,7 +551,8 @@ export function buildImagePrompt(
     'Camera look: shot on a phone camera, slightly uneven phone camera exposure, mild overexposure near the main light source, subtle shadow noise in darker areas, mild image noise, subtle jpeg compression.',
     realismDetailsGuidance,
     'Lighting discipline: keep the light source explainable, such as left-side window light, warm ceiling lamp light, or mixed cool bathroom light; use one coherent everyday setup, not a studio setup.',
-    'Use uploaded reference images as the source of truth for product packaging shape, label color, cap, logo placement, container size, and texture. Do not invent a different product.',
+    productReferenceGuidance,
+    packageReferenceGuidance,
     `Product: ${productInfo.productName ?? 'skincare product'}`,
     `Category: ${productInfo.category ?? 'unknown'}`,
     `Claims to imply softly, not as text: ${productInfo.productClaims.join(', ')}`,
@@ -557,7 +569,46 @@ export function buildImagePrompt(
     .join('\n');
 }
 
-function buildImageTypeSceneGuidance(imageType: ImageType, sceneElement: SceneElement) {
+function buildImageTypeInstruction(hasPackageAsset: boolean): Record<ImageType, string> {
+  return {
+    texture_on_hand:
+      hasPackageAsset
+        ? 'Create an amateur smartphone photo of a real customer showing the product texture on a hand or wrist, with the product packaging nearby if available.'
+        : 'Create an amateur smartphone photo of a real customer showing the product texture on a hand or wrist, with the product container nearby if available.',
+    bathroom_vanity:
+      'Create an amateur smartphone product-only placement photo of the product naturally placed in the selected everyday scene, with no visible people, no hands, no faces, no arms, no body parts, and no mirror reflection of a person.',
+    handheld_product_closeup:
+      hasPackageAsset
+        ? 'Create an amateur smartphone tight close-up of one hand naturally holding the product, front label facing the camera, with the product packaging as the main subject; not a selfie, no full person, no face.'
+        : 'Create an amateur smartphone tight close-up of one hand naturally holding the product, product container and front label facing the camera as the main subject; not a selfie, no full person, no face.',
+    selfie_holding_product:
+      'Create an amateur smartphone photo of a real customer holding the product in a casual selfie style, full face allowed when natural for the selected scene.',
+  };
+}
+
+function buildProductReferencePromptGuidance(hasPackageAsset: boolean) {
+  if (hasPackageAsset) {
+    return 'Use uploaded reference images as the source of truth for product packaging shape, label color, cap, logo placement, container size, and texture. Do not invent a different product.';
+  }
+
+  return 'Use uploaded product reference images as the source of truth for product container shape, label color, cap, logo placement, container size, and texture. Do not invent a different product or a separate outer product box.';
+}
+
+function buildPackageReferencePromptGuidance(sceneElement: SceneElement, hasPackageAsset: boolean) {
+  if (hasPackageAsset) {
+    return 'Product outer packaging may appear only when it matches an uploaded package reference image exactly; never invent a new printed product box design.';
+  }
+
+  if (sceneElement !== 'unboxing') return '';
+
+  return [
+    'No uploaded package reference image was provided.',
+    'Do not generate any product outer packaging box, printed sleeve, branded paper box, or separate product box.',
+    'For unboxing scenes, show only the product container from the product reference image together with a plain cardboard shipping box, bubble wrap, torn tape, and packing paper.',
+  ].join(' ');
+}
+
+function buildImageTypeSceneGuidance(imageType: ImageType, sceneElement: SceneElement, hasPackageAsset: boolean) {
   const isOutdoorTropicalScene = isTropicalSceneElement(sceneElement);
 
   const guidance: Record<ImageType, string> = {
@@ -565,7 +616,9 @@ function buildImageTypeSceneGuidance(imageType: ImageType, sceneElement: SceneEl
       isOutdoorTropicalScene
         ? 'Scene: close-up of product texture on a hand or wrist in the selected outdoor everyday scene, casual customer review photo.'
         : 'Scene: ordinary apartment close-up, near a window, casual customer review photo.',
-      'Lighting: natural everyday light from the selected scene, realistic contact shadows around fingers, wrist, product texture, and packaging.',
+      hasPackageAsset
+        ? 'Lighting: natural everyday light from the selected scene, realistic contact shadows around fingers, wrist, product texture, and packaging.'
+        : 'Lighting: natural everyday light from the selected scene, realistic contact shadows around fingers, wrist, product texture, and product container.',
     ].join('\n'),
     bathroom_vanity: [
       'Scene: product-only everyday placement photo, product standing or leaning naturally on a real surface in the selected scene.',
@@ -588,11 +641,13 @@ function buildImageTypeSceneGuidance(imageType: ImageType, sceneElement: SceneEl
   return guidance[imageType];
 }
 
-function buildSceneElementPromptGuidance(imageType: ImageType, sceneElement: SceneElement) {
+function buildSceneElementPromptGuidance(imageType: ImageType, sceneElement: SceneElement, hasPackageAsset: boolean) {
   const sceneElementInstruction: Record<ImageType, Record<SceneElement, string>> = {
     texture_on_hand: {
       unboxing:
-        'Scene element: close-up beside an opened cardboard shipping box, torn tape, bubble wrap, packing paper, and product carton partly visible on a home table or sofa.',
+        hasPackageAsset
+          ? 'Scene element: close-up beside an opened cardboard shipping box, torn tape, bubble wrap, packing paper, and product carton partly visible on a home table or sofa.'
+          : 'Scene element: close-up beside an opened cardboard shipping box, torn tape, bubble wrap, packing paper, and the product container visible on a home table or sofa.',
       living_room:
         'Scene element: ordinary apartment living room close-up, coffee table edge, curtains or TV cabinet softly visible, cup, tissue box, or remote control in the background.',
       sofa:
@@ -606,7 +661,9 @@ function buildSceneElementPromptGuidance(imageType: ImageType, sceneElement: Sce
     },
     bathroom_vanity: {
       unboxing:
-        'Scene element: product-only unboxing scene, opened cardboard shipping box, torn tape, bubble wrap, packing paper, product carton partly pulled out, slightly messy real customer photo on a home table or sofa.',
+        hasPackageAsset
+          ? 'Scene element: product-only unboxing scene, opened cardboard shipping box, torn tape, bubble wrap, packing paper, product carton partly pulled out, slightly messy real customer photo on a home table or sofa.'
+          : 'Scene element: product-only unboxing scene, opened cardboard shipping box, torn tape, bubble wrap, packing paper, product container placed directly among shipping materials, slightly messy real customer photo on a home table or sofa.',
       living_room:
         'Scene element: product-only ordinary apartment living room, product on a coffee table, curtains or TV cabinet softly visible, cup, tissue box, remote control, natural window light mixed with indoor ambient light.',
       sofa:
@@ -620,7 +677,9 @@ function buildSceneElementPromptGuidance(imageType: ImageType, sceneElement: Sce
     },
     handheld_product_closeup: {
       unboxing:
-        'Scene element: unboxing background, one hand holds the product above an opened cardboard shipping box with torn tape, bubble wrap, packing paper, and product carton partly visible.',
+        hasPackageAsset
+          ? 'Scene element: unboxing background, one hand holds the product above an opened cardboard shipping box with torn tape, bubble wrap, packing paper, and product carton partly visible.'
+          : 'Scene element: unboxing background, one hand holds the product above an opened cardboard shipping box with torn tape, bubble wrap, packing paper, and no product outer box visible.',
       living_room:
         'Scene element: ordinary apartment living room background, one hand holds the product close to the camera, coffee table, curtains or TV cabinet softly visible.',
       sofa:
@@ -634,7 +693,9 @@ function buildSceneElementPromptGuidance(imageType: ImageType, sceneElement: Sce
     },
     selfie_holding_product: {
       unboxing:
-        'Scene element: indoor unboxing selfie, opened cardboard shipping box, torn tape, bubble wrap, packing paper, and product carton visible on a home table or sofa.',
+        hasPackageAsset
+          ? 'Scene element: indoor unboxing selfie, opened cardboard shipping box, torn tape, bubble wrap, packing paper, and product carton visible on a home table or sofa.'
+          : 'Scene element: indoor unboxing selfie, opened cardboard shipping box, torn tape, bubble wrap, packing paper, and product container visible on a home table or sofa.',
       living_room:
         'Scene element: ordinary apartment living room selfie, coffee table, curtains or TV cabinet softly visible, cup, tissue box, remote control, natural window light mixed with indoor ambient light.',
       sofa:
@@ -681,7 +742,7 @@ function buildPersonGenderPromptGuidance(personGender: PersonGender) {
   return guidance[personGender];
 }
 
-function buildPoseVariantPromptGuidance(imageType: ImageType, poseSeed: number) {
+function buildPoseVariantPromptGuidance(imageType: ImageType, poseSeed: number, hasPackageAsset: boolean) {
   if (imageType !== 'selfie_holding_product') return '';
 
   const variants = [
@@ -689,7 +750,9 @@ function buildPoseVariantPromptGuidance(imageType: ImageType, poseSeed: number) 
     'Pose variant: candid standing or walking selfie, product visible as proof-of-use in the lower third of the frame or around shoulder height, arm relaxed, background allowed to take more space.',
     'Pose variant: seated or leaning everyday snapshot, product visible as proof-of-use in one hand near a table edge, railing, sofa arm, or bag strap, body angled slightly away from the camera.',
     'Pose variant: off-center phone selfie, product visible as proof-of-use closer to the camera than the face or partly lower in frame, face may be slightly cropped or looking at the screen.',
-    'Pose variant: casual table or unboxing selfie, product visible as proof-of-use beside packaging or daily items, person secondary in the frame, expression neutral or mid-movement.',
+    hasPackageAsset
+      ? 'Pose variant: casual table or unboxing selfie, product visible as proof-of-use beside packaging or daily items, person secondary in the frame, expression neutral or mid-movement.'
+      : 'Pose variant: casual table or unboxing selfie, product visible as proof-of-use beside daily items or shipping materials, person secondary in the frame, expression neutral or mid-movement.',
     'Pose variant: casual outdoor proof photo, product visible as proof-of-use at chest, waist, or lower-frame height, face and product do not share the same fixed cheek-side pose.',
   ];
   const normalizedIndex = Math.abs(Math.trunc(poseSeed)) % variants.length;
@@ -786,9 +849,11 @@ function buildPromptFusionGuidance(
   return guidance.join('\n');
 }
 
-function buildRealismDetailsGuidance(imageType: ImageType) {
+function buildRealismDetailsGuidance(imageType: ImageType, hasPackageAsset: boolean) {
   if (imageType === 'bathroom_vanity') {
-    return 'Realism details: real packaging material, natural surface contact, small dust or water marks when suitable, realistic object scale, slightly messy everyday background, no showroom perfection.';
+    return hasPackageAsset
+      ? 'Realism details: real packaging material, natural surface contact, small dust or water marks when suitable, realistic object scale, slightly messy everyday background, no showroom perfection.'
+      : 'Realism details: real product container material, natural surface contact, small dust or water marks when suitable, realistic object scale, slightly messy everyday background, no showroom perfection.';
   }
 
   if (imageType === 'handheld_product_closeup' || imageType === 'texture_on_hand') {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buyerShowErrorResponse, readCurrentBuyerShowUser } from '@/lib/buyer-show/auth';
-import { buildImagePrompt, resolveUploadedAssetImageUrls } from '@/lib/buyer-show/generation-service';
+import { buildImagePrompt, hasUploadedPackageAsset, resolveUploadedAssetImageUrls } from '@/lib/buyer-show/generation-service';
 import { generateBuyerShowImage } from '@/lib/buyer-show/image-provider';
 import {
   imageTypeSchema,
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         input.seasonClimate,
         0,
         input.personGender,
+        { hasPackageAsset: hasUploadedPackageAsset(input.assets) },
       ),
     });
     return NextResponse.json({ ok: true, image });

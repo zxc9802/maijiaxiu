@@ -5,7 +5,7 @@ import { basename, join, resolve } from 'node:path';
 import ts from 'typescript';
 
 const promptSource = readFileSync(resolve('lib/buyer-show/generation-service.ts'), 'utf8');
-const { buildImagePrompt } = loadGenerationServiceForTests();
+const { buildImagePrompt, hasUploadedPackageAsset } = loadGenerationServiceForTests();
 
 const productInfo = {
   productName: '焕颜修护晚霜',
@@ -128,6 +128,46 @@ const productOnlySofaPrompt = buildImagePrompt(
 );
 assertIncludesAll(productOnlySofaPrompt, ['product-only', 'no visible people', 'no hands']);
 assertExcludesAll(productOnlySofaPrompt, ['casually held', 'real skin texture', 'natural body proportions', 'clothing folds']);
+
+assert.equal(
+  hasUploadedPackageAsset([{ id: 'product-1', type: 'product', temporaryObjectUrl: 'https://example.test/product.png' }]),
+  false,
+  'product-only assets should not count as uploaded package references',
+);
+assert.equal(
+  hasUploadedPackageAsset([{ id: 'package-1', type: 'package', temporaryObjectUrl: 'https://example.test/package.png' }]),
+  true,
+  'package assets should count as uploaded package references',
+);
+
+const noPackageUnboxingPrompt = buildImagePrompt(
+  productInfo,
+  'bathroom_vanity',
+  'southeast_asia_asian',
+  'unboxing',
+  'spring_autumn',
+  0,
+  'female',
+  { hasPackageAsset: false },
+);
+assertIncludesAll(noPackageUnboxingPrompt, [
+  'No uploaded package reference image was provided',
+  'Do not generate any product outer packaging box',
+  'show only the product container from the product reference image',
+]);
+assertExcludesAll(noPackageUnboxingPrompt, ['product carton', 'retail carton']);
+
+const packageReferenceUnboxingPrompt = buildImagePrompt(
+  productInfo,
+  'bathroom_vanity',
+  'southeast_asia_asian',
+  'unboxing',
+  'spring_autumn',
+  0,
+  'female',
+  { hasPackageAsset: true },
+);
+assertIncludesAll(packageReferenceUnboxingPrompt, ['product carton partly pulled out']);
 
 const handheldDressingTablePrompt = buildImagePrompt(
   productInfo,
