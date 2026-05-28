@@ -29,8 +29,17 @@ assert.match(middlewareSource, /ticket/);
 assert.match(middlewareSource, /exchangeMainAppSsoTicket/);
 assert.match(middlewareSource, /buildSessionCookie/);
 assert.match(sessionSource, /MAIN_APP_BUYER_SHOW_SSO_EXCHANGE_PATH/);
+assert.match(sessionSource, /MAIN_APP_BUYER_SHOW_SESSION_PATH/);
 assert.match(sessionSource, /BUYER_SHOW_SESSION_SECRET/);
 assert.match(sessionSource, /buyer_show_session/);
+assert.match(sessionSource, /validateMainAppSession/);
+assert.match(sessionSource, /\/api\/sso\/session/);
+assert.match(sessionSource, /Authorization:\s*`Bearer \$\{session\.token\}`/);
+assert.match(authSource, /readFreshAppSession/);
+assert.match(authSource, /SESSION_REVOKED/);
+assert.match(authSource, /buildClearedSessionCookie/);
+assert.match(middlewareSource, /readFreshAppSession/);
+assert.match(middlewareSource, /buildClearedSessionCookie/);
 assert.match(sessionRouteSource, /readCurrentBuyerShowUser/);
 
 assert.match(authSource, /readCurrentBuyerShowUser/);

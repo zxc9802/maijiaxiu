@@ -1,8 +1,10 @@
 import {
+  buildClearedSessionCookie,
   buildMainAppEntryUrl,
   isMainAppSsoRequired,
-  readAppSession,
+  readFreshAppSession,
   resolveRequestedMainAppUrl,
+  serializeSessionCookie,
   type BuyerShowSessionUser,
 } from './app-session';
 
@@ -14,15 +16,21 @@ export type BuyerShowUser = {
   role?: string;
 };
 
+type BuyerShowAuthErrorCode = 'SESSION_REQUIRED' | 'SESSION_REVOKED';
+
 export class BuyerShowAuthError extends Error {
   status: number;
   redirectUrl: string;
+  code: BuyerShowAuthErrorCode;
 
-  constructor(redirectUrl: string) {
-    super('请先从主站登录后再进入买家秀智能体。');
+  constructor(redirectUrl: string, code: BuyerShowAuthErrorCode = 'SESSION_REQUIRED') {
+    super(code === 'SESSION_REVOKED'
+      ? '主站登录状态已失效，请重新从主站进入买家秀智能体。'
+      : '请先从主站登录后再进入买家秀智能体。');
     this.name = 'BuyerShowAuthError';
     this.status = 401;
     this.redirectUrl = redirectUrl;
+    this.code = code;
   }
 }
 
@@ -54,21 +62,26 @@ export async function readCurrentBuyerShowUser(request: Request): Promise<BuyerS
     };
   }
 
-  const session = await readAppSession(request);
+  const { session, hadSession } = await readFreshAppSession(request);
   const user = session ? normalizeSessionUser(session.user) : null;
   if (user) {
     return user;
   }
 
-  throw new BuyerShowAuthError(buildMainAppEntryUrl(resolveRequestedMainAppUrl(request)));
+  throw new BuyerShowAuthError(
+    buildMainAppEntryUrl(resolveRequestedMainAppUrl(request)),
+    hadSession ? 'SESSION_REVOKED' : 'SESSION_REQUIRED',
+  );
 }
 
 export function buyerShowErrorResponse(error: unknown) {
   if (error instanceof BuyerShowAuthError) {
-    return Response.json(
-      { ok: false, error: error.message, redirectUrl: error.redirectUrl },
+    const response = Response.json(
+      { ok: false, code: error.code, error: error.message, redirectUrl: error.redirectUrl },
       { status: error.status },
     );
+    response.headers.append('Set-Cookie', serializeSessionCookie(buildClearedSessionCookie()));
+    return response;
   }
 
   return Response.json(

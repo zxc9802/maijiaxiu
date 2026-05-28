@@ -7,7 +7,7 @@ import {
   exchangeMainAppSsoTicket,
   isHtmlDocumentRequest,
   isMainAppSsoRequired,
-  readAppSession,
+  readFreshAppSession,
   resolveRequestedMainAppUrl,
 } from '@/lib/buyer-show/app-session';
 
@@ -51,12 +51,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = await readAppSession(request);
+  const { session, hadSession } = await readFreshAppSession(request);
   if (session) {
     return NextResponse.next();
   }
 
-  return NextResponse.redirect(buildMainAppEntryUrl(requestedMainAppUrl), 302);
+  const response = NextResponse.redirect(buildMainAppEntryUrl(requestedMainAppUrl), 302);
+  if (hadSession) {
+    response.cookies.set(buildClearedSessionCookie());
+  }
+  return response;
 }
 
 export const config = {

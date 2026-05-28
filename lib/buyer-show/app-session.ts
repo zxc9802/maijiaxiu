@@ -1,5 +1,6 @@
 const DEFAULT_MAIN_APP_ENTRY_PATH = '/bot/buyer-show';
 const DEFAULT_MAIN_APP_SSO_EXCHANGE_PATH = '/api/buyer-show-sso/exchange';
+const DEFAULT_MAIN_APP_SESSION_PATH = '/api/sso/session';
 const DEFAULT_SESSION_COOKIE_NAME = 'buyer_show_session';
 const DEFAULT_SESSION_TTL_MINUTES = 720;
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
@@ -17,6 +18,17 @@ type BuyerShowSessionExchangeResult = {
   token: string;
   user: BuyerShowSessionUser;
   redirectPath: string;
+};
+
+type BuyerShowSessionCookie = {
+  name: string;
+  value: string;
+  httpOnly: boolean;
+  sameSite: 'lax';
+  secure: boolean;
+  path: string;
+  maxAge: number;
+  expires: Date;
 };
 
 const encoder = new TextEncoder();
@@ -187,6 +199,13 @@ export function getMainAppSsoExchangePath() {
   );
 }
 
+export function getMainAppSessionPath() {
+  return normalizePath(
+    process.env.MAIN_APP_BUYER_SHOW_SESSION_PATH || process.env.MAIN_APP_SSO_SESSION_PATH,
+    DEFAULT_MAIN_APP_SESSION_PATH,
+  );
+}
+
 export function getSessionCookieName() {
   return process.env.BUYER_SHOW_SESSION_COOKIE_NAME?.trim() || DEFAULT_SESSION_COOKIE_NAME;
 }
@@ -232,7 +251,43 @@ export async function readAppSession(request: Pick<Request, 'headers'>) {
   }
 }
 
-export async function buildSessionCookie(session: Pick<BuyerShowSession, 'token' | 'user' | 'mainAppUrl'>) {
+export async function validateMainAppSession(session: Pick<BuyerShowSession, 'token' | 'mainAppUrl'> | null) {
+  if (!session?.token) return false;
+
+  const sessionMainAppUrl = sanitizeMainAppUrl(session.mainAppUrl) || getConfiguredMainAppUrl();
+  if (!sessionMainAppUrl) return false;
+
+  try {
+    const response = await fetch(`${stripTrailingSlash(sessionMainAppUrl)}${getMainAppSessionPath()}`, {
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+      },
+      cache: 'no-store',
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('[buyer-show-sso] Main-site session validation failed:', error);
+    return false;
+  }
+}
+
+export async function readFreshAppSession(request: Pick<Request, 'headers'>) {
+  const session = await readAppSession(request);
+  if (!session) {
+    return { session: null, hadSession: false };
+  }
+
+  const isFresh = await validateMainAppSession(session);
+  return {
+    session: isFresh ? session : null,
+    hadSession: true,
+  };
+}
+
+export async function buildSessionCookie(
+  session: Pick<BuyerShowSession, 'token' | 'user' | 'mainAppUrl'>,
+): Promise<BuyerShowSessionCookie> {
   const expiresAt = Date.now() + getSessionTtlMs();
   const payload = bytesToBase64Url(
     encoder.encode(JSON.stringify({
@@ -256,7 +311,7 @@ export async function buildSessionCookie(session: Pick<BuyerShowSession, 'token'
   };
 }
 
-export function buildClearedSessionCookie() {
+export function buildClearedSessionCookie(): BuyerShowSessionCookie {
   return {
     name: getSessionCookieName(),
     value: '',
@@ -267,6 +322,25 @@ export function buildClearedSessionCookie() {
     maxAge: 0,
     expires: new Date(0),
   };
+}
+
+export function serializeSessionCookie(cookie: BuyerShowSessionCookie) {
+  const parts = [
+    `${cookie.name}=${encodeURIComponent(cookie.value)}`,
+    `Path=${cookie.path}`,
+    `Max-Age=${cookie.maxAge}`,
+    `Expires=${cookie.expires.toUTCString()}`,
+    'SameSite=Lax',
+  ];
+
+  if (cookie.httpOnly) {
+    parts.push('HttpOnly');
+  }
+  if (cookie.secure) {
+    parts.push('Secure');
+  }
+
+  return parts.join('; ');
 }
 
 export function isHtmlDocumentRequest(request: Pick<Request, 'method' | 'headers'>, pathname: string) {
