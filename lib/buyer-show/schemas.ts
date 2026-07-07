@@ -38,6 +38,13 @@ export const languageCodeSchema = z.enum(['zh-CN', 'en-US', 'th-TH', 'ms-MY']);
 export const complianceStatusSchema = z.enum(['checking', 'passed', 'needs_review']);
 export const generationStatusSchema = z.enum(['completed', 'failed']);
 
+const optionalTrimmedStringSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}, z.string().optional());
+
 export type ProductInfoSource = z.infer<typeof productInfoSourceSchema>;
 export type ProductCategory = z.infer<typeof productCategorySchema>;
 export type UploadedAssetType = z.infer<typeof uploadedAssetTypeSchema>;
@@ -52,12 +59,12 @@ export type ComplianceStatus = z.infer<typeof complianceStatusSchema>;
 export type GenerationStatus = z.infer<typeof generationStatusSchema>;
 
 export const productInfoSchema = z.object({
-  productName: z.string().optional(),
+  productName: optionalTrimmedStringSchema,
   category: productCategorySchema.default('unknown'),
   productInfoSource: productInfoSourceSchema.default('mixed'),
   productClaims: z.array(z.string()).default([]),
   skinTypes: z.array(z.string()).default([]),
-  usageFeel: z.string().optional(),
+  usageFeel: optionalTrimmedStringSchema,
   avoidTerms: z.array(z.string()).default([]),
 });
 

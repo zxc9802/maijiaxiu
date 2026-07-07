@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import ts from 'typescript';
 
 const schemaSource = readFileSync(resolve('lib/buyer-show/schemas.ts'), 'utf8');
+const { productInfoSchema } = loadSchemasForTests();
 
 const expectedTexts = [
   'zh-CN',
@@ -98,6 +101,18 @@ for (const name of ['套件1']) {
 assert.ok(!schemaSource.includes("name: '套件2'"), 'default generation sets should not include suite 2');
 assert.ok(!schemaSource.includes("name: '套件3'"), 'default generation sets should not include suite 3');
 
+const nullableProductInfo = productInfoSchema.parse({
+  productName: null,
+  usageFeel: null,
+  category: '',
+  productClaims: [],
+  skinTypes: [],
+  avoidTerms: [],
+});
+assert.equal(nullableProductInfo.productName, undefined, 'nullable product name should be treated as missing');
+assert.equal(nullableProductInfo.usageFeel, undefined, 'nullable usage feel should be treated as missing');
+assert.equal(nullableProductInfo.category, 'unknown', 'empty category should still fall back to unknown');
+
 const defaultSetBlocks = schemaSource.match(/id: 'set-[a]'[\s\S]*?commentCount: \d,/g) ?? [];
 assert.equal(defaultSetBlocks.length, 1, 'default generation sets should include one set block');
 for (const block of defaultSetBlocks) {
@@ -109,4 +124,23 @@ for (const block of defaultSetBlocks) {
 
 for (const oldName of ['真实素人', '只评论结果', '自拍持产品']) {
   assert.ok(!schemaSource.includes(`name: '${oldName}'`), `default generation sets should not use descriptive name ${oldName}`);
+}
+
+function loadSchemasForTests() {
+  const tempDir = mkdtempSync(resolve('tests/.schema-test-'));
+  writeFileSync(join(tempDir, 'package.json'), '{"type":"commonjs"}');
+  const source = readFileSync(resolve('lib/buyer-show/schemas.ts'), 'utf8');
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020,
+    },
+  });
+  writeFileSync(join(tempDir, 'schemas.js'), transpiled.outputText);
+
+  const require = createRequire(import.meta.url);
+  const schemas = require(join(tempDir, 'schemas.js'));
+  process.once('exit', () => rmSync(tempDir, { force: true, recursive: true }));
+  return schemas;
 }
