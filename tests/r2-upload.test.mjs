@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const schemaSource = readFileSync(resolve('lib/buyer-show/schemas.ts'), 'utf8');
@@ -7,34 +7,30 @@ const generationServiceSource = readFileSync(resolve('lib/buyer-show/generation-
 const clientSource = readFileSync(resolve('app/buyer-show/BuyerShowAgentClient.tsx'), 'utf8');
 const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
 
-assert.ok(existsSync(resolve('lib/buyer-show/r2-storage.ts')), 'R2 storage helper should exist');
 assert.ok(
-  existsSync(resolve('app/api/buyer-show/assets/sign-upload/route.ts')),
-  'asset upload signing route should exist',
-);
-
-assert.ok(packageJson.dependencies['@aws-sdk/client-s3'], 'package.json should include the S3 client');
-assert.ok(
-  packageJson.dependencies['@aws-sdk/s3-request-presigner'],
-  'package.json should include the S3 presigner',
-);
-
-assert.ok(schemaSource.includes('objectKey: z.string'), 'uploaded assets should carry a compact R2 object key');
-assert.ok(
-  generationServiceSource.includes('createR2ReadUrl'),
-  'generation service should sign R2 object keys into temporary readable URLs for model calls',
+  !packageJson.dependencies['@aws-sdk/client-s3'] && !packageJson.dependencies['@aws-sdk/s3-request-presigner'],
+  'package.json should not include R2/S3 dependencies when uploads stay as base64',
 );
 assert.ok(
-  generationServiceSource.includes('await resolveUploadedAssetImageUrls(request.assets)'),
-  'generation service should resolve uploaded assets asynchronously before provider calls',
+  schemaSource.includes('localPreviewKey: z.string'),
+  'uploaded assets should carry the browser-local data URL used as the model reference',
 );
 assert.ok(
-  clientSource.includes('/api/buyer-show/assets/sign-upload'),
-  'client should request a presigned R2 PUT URL before uploading assets',
+  !generationServiceSource.includes('createR2ReadUrl'),
+  'generation service should not require R2 read URLs for uploaded reference images',
 );
-assert.ok(clientSource.includes('prepareImageForUpload'), 'client should resize/re-encode images before R2 upload');
-assert.ok(clientSource.includes('objectKey: uploaded.key'), 'client assets should store the returned R2 object key');
 assert.ok(
-  !clientSource.includes('localPreviewKey: await readFileAsDataUrl(file)'),
-  'new uploads should not store full base64 images as the model-bound asset payload',
+  generationServiceSource.includes('return asset.localPreviewKey ?? asset.temporaryObjectUrl'),
+  'generation service should pass local base64 data URLs to provider calls',
+);
+assert.ok(
+  !clientSource.includes('/api/buyer-show/assets/sign-upload'),
+  'client should not request a presigned R2 PUT URL before generating',
+);
+assert.ok(clientSource.includes('prepareImageForUpload'), 'client should still resize/re-encode images before base64 storage');
+assert.ok(clientSource.includes('readBlobAsDataUrl'), 'client should convert prepared upload blobs to data URLs');
+assert.ok(clientSource.includes('localPreviewKey: dataUrl'), 'client assets should store base64 data URLs as the payload');
+assert.ok(
+  !clientSource.includes('pendingAssetUploadsRef'),
+  'client should not keep background R2 upload state when using base64 payloads',
 );

@@ -1,6 +1,5 @@
 import { buildCompliancePrompt, buildHumanizedCommentPrompt } from './humanizer-rules';
 import { generateBuyerShowImage } from './image-provider';
-import { createR2ReadUrl } from './r2-storage';
 import {
   generateRequestSchema,
   getLanguageLabel,
@@ -448,15 +447,9 @@ function hasMissingProductInfo(productInfo: ProductInfo) {
 }
 
 export async function resolveUploadedAssetImageUrls(assets: UploadedAsset[]) {
-  const urls = await Promise.all(
-    assets.map(async (asset) => {
-      if (asset.objectKey) {
-        return createR2ReadUrl(asset.objectKey);
-      }
-
-      return asset.temporaryObjectUrl ?? asset.localPreviewKey;
-    }),
-  );
+  const urls = assets.map((asset) => {
+    return asset.localPreviewKey ?? asset.temporaryObjectUrl;
+  });
 
   return urls.filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
 }

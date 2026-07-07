@@ -62,15 +62,15 @@ assert.ok(
 );
 assert.ok(
   generationService.includes('const imageUrls = await resolveUploadedAssetImageUrls(request.assets)'),
-  'image generation should pass uploaded R2/object-key reference images to the image provider',
+  'image generation should pass uploaded reference images to the image provider',
 );
 assert.ok(
   !generationService.includes('request.assets.map((asset) => asset.temporaryObjectUrl)'),
   'image generation should not ignore browser-local uploaded reference images',
 );
 assert.ok(
-  generationService.includes('createR2ReadUrl(asset.objectKey)'),
-  'image generation should turn uploaded R2 object keys into temporary read URLs',
+  generationService.includes('asset.localPreviewKey ?? asset.temporaryObjectUrl'),
+  'image generation should use base64 local preview images before temporary URLs',
 );
 assert.ok(generationService.includes('amateur smartphone photo'), 'image prompts should target authentic phone-shot buyer show photos');
 assert.ok(generationService.includes('Use uploaded reference images'), 'image prompts should explicitly preserve the uploaded product reference');

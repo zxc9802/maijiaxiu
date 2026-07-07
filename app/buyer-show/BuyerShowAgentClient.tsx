@@ -74,24 +74,6 @@ type ClientUploadedAsset = UploadedAsset & {
   uploadError?: string;
 };
 
-type AssetUploadCompletion = {
-  objectKey?: string;
-  error?: string;
-};
-
-type SignedAssetUpload = {
-  ok: true;
-  key: string;
-  uploadUrl: string;
-  contentType: string;
-  expiresIn: number;
-};
-
-type AssetUploadError = {
-  ok: false;
-  error: string;
-};
-
 type SavedBuyerShowState = {
   version: 1;
   savedAt: string;
@@ -233,29 +215,31 @@ function toAssetPayload(asset: ClientUploadedAsset): UploadedAsset {
   return {
     id: asset.id,
     type: asset.type,
-    objectKey: asset.objectKey,
-    localPreviewKey: asset.objectKey ? undefined : asset.localPreviewKey,
+    localPreviewKey: asset.localPreviewKey,
     temporaryObjectUrl: asset.temporaryObjectUrl,
     deletedAfterProcessing: asset.deletedAfterProcessing,
   };
 }
 
-function createOptimisticAsset(type: UploadedAssetType, file: File, index: number): ClientUploadedAsset {
-  validateUploadFile(file);
+async function createBase64Asset(type: UploadedAssetType, file: File, index: number): Promise<ClientUploadedAsset> {
+  const prepared = await prepareImageForUpload(file);
+  const dataUrl = await readBlobAsDataUrl(prepared.blob);
+
   return {
     id: `${type}-${Date.now()}-${index}`,
     type,
     name: file.name,
-    previewUrl: URL.createObjectURL(file),
+    localPreviewKey: dataUrl,
+    previewUrl: dataUrl,
     deletedAfterProcessing: false,
-    uploadStatus: 'uploading',
+    uploadStatus: 'uploaded',
   };
 }
 
 function getReferenceImageUrls(assets: ClientUploadedAsset[]) {
   return assets
-    .map((asset) => asset.temporaryObjectUrl)
-    .filter((url): url is string => Boolean(url && url.startsWith('http')));
+    .map((asset) => asset.localPreviewKey ?? asset.temporaryObjectUrl)
+    .filter((url): url is string => Boolean(url && (url.startsWith('http') || url.startsWith('data:image/'))));
 }
 
 function cloneGenerationSets(sets: GenerationSet[] = defaultGenerationSets): GenerationSet[] {
@@ -666,6 +650,17 @@ async function prepareImageForUpload(file: File) {
   }
 }
 
+function readBlobAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('图片读取失败'));
+    };
+    reader.onerror = () => reject(new Error('图片读取失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function validateUploadFile(file: File) {
   if (!file.type.startsWith('image/')) {
     throw new Error('只能上传图片文件');
@@ -701,35 +696,6 @@ function getGenerationJobMessage(job: BuyerShowGenerationJob) {
   return '生成失败';
 }
 
-async function uploadAssetToR2(type: UploadedAssetType, file: File) {
-  const prepared = await prepareImageForUpload(file);
-  const response = await postJson<SignedAssetUpload | AssetUploadError>('/api/buyer-show/assets/sign-upload', {
-    assetType: type,
-    fileName: prepared.fileName,
-    contentType: prepared.contentType,
-    byteSize: prepared.blob.size,
-  });
-
-  if (!response.ok) {
-    throw new Error(response.error);
-  }
-
-  const uploadResponse = await fetch(response.uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': response.contentType },
-    body: prepared.blob,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error(`R2 上传失败（HTTP ${uploadResponse.status}）`);
-  }
-
-  return {
-    key: response.key,
-    blob: prepared.blob,
-  };
-}
-
 export default function BuyerShowAgentClient() {
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState<ProductCategory>('');
@@ -760,7 +726,6 @@ export default function BuyerShowAgentClient() {
   const [snapshotStatus, setSnapshotStatus] = useState<string | undefined>();
   const generationRequestIdRef = useRef(0);
   const currentGenerationJobIdRef = useRef<string | undefined>(undefined);
-  const pendingAssetUploadsRef = useRef(new Map<string, Promise<AssetUploadCompletion>>());
 
   useEffect(() => {
     setFixedClaims(readStoredTags('claims'));
@@ -807,7 +772,6 @@ export default function BuyerShowAgentClient() {
         id: asset.id,
         type: asset.type,
         name: asset.name,
-        objectKey: asset.objectKey,
         localPreviewKey: asset.localPreviewKey,
         temporaryObjectUrl: asset.temporaryObjectUrl,
         deletedAfterProcessing: asset.deletedAfterProcessing,
@@ -853,7 +817,6 @@ export default function BuyerShowAgentClient() {
       setSaveClaimAsFixed(snapshot.saveClaimAsFixed);
       setSaveSkinAsFixed(snapshot.saveSkinAsFixed);
       setSaveUsageFeelAsFixed(snapshot.saveUsageFeelAsFixed);
-      pendingAssetUploadsRef.current.clear();
       setAssets((current) => {
         current.forEach(revokeAssetPreviewUrl);
         return snapshot.assets;
@@ -975,7 +938,6 @@ export default function BuyerShowAgentClient() {
     setSaveSkinAsFixed(false);
     setSaveUsageFeelAsFixed(false);
     assets.forEach(revokeAssetPreviewUrl);
-    pendingAssetUploadsRef.current.clear();
     setAssets([]);
     setSets(createClearedGenerationSets());
     setResults([]);
@@ -1159,12 +1121,8 @@ export default function BuyerShowAgentClient() {
 
     setGenerationError(undefined);
     try {
-      files.forEach(validateUploadFile);
-      const optimisticAssets = files.map((file, index) => createOptimisticAsset(type, file, index));
-      setAssets((current) => [...current, ...optimisticAssets]);
-      optimisticAssets.forEach((asset, index) => {
-        startAssetUpload(asset, files[index]);
-      });
+      const uploadedAssets = await Promise.all(files.map((file, index) => createBase64Asset(type, file, index)));
+      setAssets((current) => [...current, ...uploadedAssets]);
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : '图片上传失败');
     } finally {
@@ -1172,57 +1130,14 @@ export default function BuyerShowAgentClient() {
     }
   }
 
-  function startAssetUpload(asset: ClientUploadedAsset, file: File) {
-    const uploadPromise = uploadAssetToR2(asset.type, file)
-      .then((uploaded): AssetUploadCompletion => {
-        setAssets((current) =>
-          current.map((item) =>
-            item.id === asset.id
-              ? { ...item, objectKey: uploaded.key, uploadStatus: 'uploaded', uploadError: undefined }
-              : item,
-          ),
-        );
-        return { objectKey: uploaded.key };
-      })
-      .catch((error): AssetUploadCompletion => {
-        const message = error instanceof Error ? error.message : '图片上传失败';
-        setAssets((current) =>
-          current.map((item) => (item.id === asset.id ? { ...item, uploadStatus: 'failed', uploadError: message } : item)),
-        );
-        return { error: message };
-      });
-
-    pendingAssetUploadsRef.current.set(asset.id, uploadPromise);
-    return uploadPromise;
-  }
-
   async function ensureAssetsUploaded(targetAssets: ClientUploadedAsset[]) {
-    return Promise.all(
-      targetAssets.map(async (asset) => {
-        if (asset.objectKey) return asset;
-
-        const pendingUpload = pendingAssetUploadsRef.current.get(asset.id);
-        if (!pendingUpload) {
-          throw new Error(asset.uploadError || `${asset.name} 还没有完成上传，请稍后重试`);
-        }
-
-        const uploaded = await pendingUpload;
-        if (uploaded.error || !uploaded.objectKey) {
-          throw new Error(uploaded.error || `${asset.name} 上传失败，请重新选择图片`);
-        }
-
-        return {
-          ...asset,
-          objectKey: uploaded.objectKey,
-          uploadStatus: 'uploaded' as const,
-          uploadError: undefined,
-        };
-      }),
-    );
+    return targetAssets.map((asset) => {
+      if (asset.localPreviewKey || asset.temporaryObjectUrl) return asset;
+      throw new Error(asset.uploadError || `${asset.name} 图片读取失败，请重新选择图片`);
+    });
   }
 
   function removeAsset(assetId: string) {
-    pendingAssetUploadsRef.current.delete(assetId);
     setAssets((current) => {
       const asset = current.find((item) => item.id === assetId);
       if (asset) revokeAssetPreviewUrl(asset);
