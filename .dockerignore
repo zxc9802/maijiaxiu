@@ -1,12 +1,4 @@
-node_modules
-.next
-out
-.env
-.env.local
-.DS_Store
-*.tsbuildinfo
 
-temp
 # Server-side usage report outbox (contains employee IDs).
 .usage-outbox/
 **/.usage-outbox/

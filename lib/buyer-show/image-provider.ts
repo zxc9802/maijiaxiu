@@ -1,3 +1,4 @@
+import { meteredFetch } from './main-usage';
 import { request } from 'node:https';
 import { URL } from 'node:url';
 import { providerConfig, requireProviderSecret } from './provider-config';
@@ -166,7 +167,7 @@ async function requestImageEdit(input: ImageGenerationInput, provider: ImageProv
   }
 
   try {
-    const response = await fetch(buildProviderUrl(provider.baseUrl, '/images/edits'), {
+    const response = await meteredFetch(buildProviderUrl(provider.baseUrl, '/images/edits'), {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -324,7 +325,7 @@ async function requestJsonImageGeneration({
 
   try {
     try {
-      const response = await fetch(url, {
+      const response = await meteredFetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -336,7 +337,11 @@ async function requestJsonImageGeneration({
         body: await response.text(),
       } satisfies ProviderHttpResponse;
     } catch {
-      return await requestJsonOverHttp1(url, headers, payload);
+      const response = await meteredFetch(url, { method: 'POST', body: JSON.stringify(payload) }, undefined, async () => {
+        const fallback = await requestJsonOverHttp1(url, headers, payload);
+        return new Response(fallback.body, { status: fallback.status, headers: { 'content-type': 'application/json' } });
+      });
+      return { ok: response.ok, status: response.status, body: await response.text() };
     }
   } catch (error) {
     throw new Error(`Image provider connection failed: ${readConnectionErrorMessage(error)}`);
