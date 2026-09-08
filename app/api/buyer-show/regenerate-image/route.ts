@@ -1,3 +1,4 @@
+import { runWithUsageUser } from '@/lib/buyer-show/main-usage';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buyerShowErrorResponse, readCurrentBuyerShowUser } from '@/lib/buyer-show/auth';
@@ -24,7 +25,7 @@ const regenerateImageSchema = z.object({
   assets: z.array(uploadedAssetSchema).default([]),
 });
 
-export async function POST(request: Request) {
+async function handleUsagePost(request: Request) {
   try {
     await readCurrentBuyerShowUser(request);
     const body = await request.json();
@@ -45,6 +46,15 @@ export async function POST(request: Request) {
       ),
     });
     return NextResponse.json({ ok: true, image });
+  } catch (error) {
+    return buyerShowErrorResponse(error);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await readCurrentBuyerShowUser(request);
+    return await runWithUsageUser(user.userId, () => handleUsagePost(request));
   } catch (error) {
     return buyerShowErrorResponse(error);
   }

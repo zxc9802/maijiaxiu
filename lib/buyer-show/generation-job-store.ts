@@ -1,3 +1,4 @@
+import { runWithUsageUser } from './main-usage';
 import type { Prisma } from '@prisma/client';
 import { completeMissingProductInfo, generateBuyerShowResults } from './generation-service';
 import { withPrismaRetry } from './prisma';
@@ -200,6 +201,7 @@ export async function runBuyerShowGenerationJob(jobId: string) {
   });
 
   if (!claimedJob) return;
+  return runWithUsageUser(claimedJob.userId, async () => {
 
   try {
     const request = generateRequestSchema.parse(claimedJob.request);
@@ -275,4 +277,5 @@ export async function runBuyerShowGenerationJob(jobId: string) {
       }),
     );
   }
+  });
 }
