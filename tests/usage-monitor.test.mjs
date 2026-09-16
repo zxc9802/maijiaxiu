@@ -21,6 +21,7 @@ if (existsSync(path)) {
   assert.equal(v.totalTokens,120); assert.equal(v.cachedInputTokens,40); assert.equal(v.imageInputTokens,35); assert.equal(v.reasoningTokens,10);
   const gemini=m.parseUsage({usageMetadata:{promptTokenCount:80,candidatesTokenCount:5,thoughtsTokenCount:3,promptTokensDetails:[{modality:'IMAGE',tokenCount:50}]}});
   assert.equal(gemini.imageInputTokens,50); assert.equal(gemini.outputTokens,8); assert.equal(gemini.totalTokens,88);
+  assert.equal(m.parseUsage({usage:{prompt_tokens:10,completion_tokens:5,total_tokens:99}}).totalTokens,15);
  });
  test('durable retry, per attempt IDs, verified user isolation and metadata-only storage', async () => {
   const dir=await mkdtemp(join(tmpdir(),'buyer-usage-'));
@@ -45,7 +46,12 @@ if (existsSync(path)) {
    assert.equal(terminal.filter(e=>e.userId==='employee-a').length,2);
    assert.equal(terminal.filter(e=>e.userId==='employee-b').length,2);
    assert.ok(terminal.filter(e=>e.status==='completed').every(e=>e.inputTokens===null&&e.tokenBasis==='missing'));
-   globalThis.fetch=async(url,init)=>{assert.equal(url,'https://main.test/api/sso/usage');assert.equal(init.headers['x-usage-tool'],'maijiaxiu');delivered.push(JSON.parse(init.body));return new Response('{}',{status:200});};
+   for (const body of ['{"success":false}', '<html>Sign in</html>', '{}']) {
+    globalThis.fetch=async()=>new Response(body,{status:200});
+    await m.drainUsageOutbox();
+    assert.equal((await readdir(dir)).length,8,'unacknowledged events must remain');
+   }
+   globalThis.fetch=async(url,init)=>{assert.equal(url,'https://main.test/api/sso/usage');assert.equal(init.headers['x-usage-tool'],'maijiaxiu');delivered.push(JSON.parse(init.body));return new Response('{"success":true}',{status:200});};
    await m.drainUsageOutbox(); await m.drainUsageOutbox();
    assert.equal((await readdir(dir)).length,0);
    assert.deepEqual(new Set(delivered.map(e=>e.requestId)),new Set(terminal.map(e=>e.requestId)));
