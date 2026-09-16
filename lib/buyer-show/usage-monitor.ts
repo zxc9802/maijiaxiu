@@ -35,8 +35,8 @@ export function parseUsage(value: unknown) {
   const candidates = count(gemini.candidatesTokenCount);
   const outputTokens = count(usage.output_tokens, usage.completion_tokens) ??
     (candidates !== null ? candidates + (count(gemini.thoughtsTokenCount) ?? 0) : null);
-  const totalTokens = count(usage.total_tokens, gemini.totalTokenCount) ??
-    (inputTokens !== null && outputTokens !== null ? inputTokens + outputTokens : null);
+  const totalTokens = inputTokens !== null && outputTokens !== null
+    ? inputTokens + outputTokens : count(usage.total_tokens, gemini.totalTokenCount);
   const imageDetails = Array.isArray(gemini.promptTokensDetails) ? gemini.promptTokensDetails.map(object).filter(d => d.modality === 'IMAGE') : [];
   const imageCounts = imageDetails.map(d => count(d.tokenCount));
   return {
@@ -111,7 +111,7 @@ async function drainBatch() {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-usage-tool': 'maijiaxiu', 'x-usage-secret': settings.secret },
           body, signal: AbortSignal.timeout(2000), redirect: 'error',
         });
-        if (!response.ok) break;
+        if (!response.ok || object(await response.json()).success !== true) break;
         await unlink(path);
       } catch { break; }
     }
