@@ -1,4 +1,3 @@
-import { trackProviderRequest } from './usage-monitor';
 import { request } from 'node:https';
 import { URL } from 'node:url';
 import { providerConfig, requireProviderSecret } from './provider-config';
@@ -82,21 +81,19 @@ async function requestChatCompletion({
 
   try {
     try {
-      return await trackProviderRequest(url, String(payload.model), async () => {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-        });
-
-        return {
-          ok: response.ok,
-          status: response.status,
-          body: await response.text(),
-        } satisfies ProviderHttpResponse;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
       });
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.text(),
+      } satisfies ProviderHttpResponse;
     } catch {
-      return await trackProviderRequest(url, String(payload.model), () => requestJsonOverHttp1(url, headers, payload));
+      return await requestJsonOverHttp1(url, headers, payload);
     }
   } catch (error) {
     throw new Error(`Text provider connection failed: ${readConnectionErrorMessage(error)}`);

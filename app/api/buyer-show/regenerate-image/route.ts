@@ -1,4 +1,3 @@
-import { withUsageUser } from '@/lib/buyer-show/usage-monitor';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { buyerShowErrorResponse, readCurrentBuyerShowUser } from '@/lib/buyer-show/auth';
@@ -27,11 +26,11 @@ const regenerateImageSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const user = await readCurrentBuyerShowUser(request);
+    await readCurrentBuyerShowUser(request);
     const body = await request.json();
     const input = regenerateImageSchema.parse(body);
     const imageUrls = [...input.imageUrls, ...(await resolveUploadedAssetImageUrls(input.assets))];
-    const image = await withUsageUser(user, () => generateBuyerShowImage({
+    const image = await generateBuyerShowImage({
       imageType: input.imageType,
       imageUrls,
       prompt: buildImagePrompt(
@@ -44,7 +43,7 @@ export async function POST(request: Request) {
         input.personGender,
         { hasPackageAsset: hasUploadedPackageAsset(input.assets) },
       ),
-    }));
+    });
     return NextResponse.json({ ok: true, image });
   } catch (error) {
     return buyerShowErrorResponse(error);

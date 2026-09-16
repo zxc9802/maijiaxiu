@@ -7,5 +7,3 @@ out
 *.tsbuildinfo
 
 temp
-# Durable usage metadata belongs on the deployment volume.
-data/usage-outbox/

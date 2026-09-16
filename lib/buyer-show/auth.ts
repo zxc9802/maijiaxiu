@@ -10,7 +10,6 @@ import {
 
 export type BuyerShowUser = {
   userId: string;
-  ssoVerified?: boolean;
   account?: string;
   nickname?: string;
   groupName?: string;
@@ -46,7 +45,6 @@ function normalizeSessionUser(user: BuyerShowSessionUser): BuyerShowUser | null 
 
   return {
     userId,
-    ssoVerified: true,
     account: readStringField(user, 'account') || readStringField(user, 'email'),
     nickname: readStringField(user, 'nickname'),
     groupName: readStringField(user, 'groupName'),

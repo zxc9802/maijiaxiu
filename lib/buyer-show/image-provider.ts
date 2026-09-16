@@ -1,4 +1,3 @@
-import { trackProviderRequest } from './usage-monitor';
 import { request } from 'node:https';
 import { URL } from 'node:url';
 import { providerConfig, requireProviderSecret } from './provider-config';
@@ -167,21 +166,19 @@ async function requestImageEdit(input: ImageGenerationInput, provider: ImageProv
   }
 
   try {
-    const providerResponse = await trackProviderRequest(buildProviderUrl(provider.baseUrl, '/images/edits'), provider.model, async () => {
-      const response = await fetch(buildProviderUrl(provider.baseUrl, '/images/edits'), {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: form,
-      });
-      return {
-        ok: response.ok,
-        status: response.status,
-        body: await response.text(),
-      } satisfies ProviderHttpResponse;
+    const response = await fetch(buildProviderUrl(provider.baseUrl, '/images/edits'), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: form,
     });
+    const providerResponse = {
+      ok: response.ok,
+      status: response.status,
+      body: await response.text(),
+    } satisfies ProviderHttpResponse;
 
     return readImageFromJsonResponse(providerResponse);
   } catch (error) {
@@ -327,21 +324,19 @@ async function requestJsonImageGeneration({
 
   try {
     try {
-      return await trackProviderRequest(url, String(payload.model), async () => {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-        });
-
-        return {
-          ok: response.ok,
-          status: response.status,
-          body: await response.text(),
-        } satisfies ProviderHttpResponse;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
       });
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.text(),
+      } satisfies ProviderHttpResponse;
     } catch {
-      return await trackProviderRequest(url, String(payload.model), () => requestJsonOverHttp1(url, headers, payload));
+      return await requestJsonOverHttp1(url, headers, payload);
     }
   } catch (error) {
     throw new Error(`Image provider connection failed: ${readConnectionErrorMessage(error)}`);

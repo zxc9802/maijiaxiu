@@ -1,4 +1,3 @@
-import { withUsageUser } from './usage-monitor';
 import type { Prisma } from '@prisma/client';
 import { completeMissingProductInfo, generateBuyerShowResults } from './generation-service';
 import { withPrismaRetry } from './prisma';
@@ -202,25 +201,21 @@ export async function runBuyerShowGenerationJob(jobId: string) {
 
   if (!claimedJob) return;
 
-  const usageUser = {
-    userId: claimedJob.userId,
-    ssoVerified: (claimedJob.userSnapshot as { ssoVerified?: boolean } | null)?.ssoVerified === true,
-  };
   try {
     const request = generateRequestSchema.parse(claimedJob.request);
 
     await updateJobProgress(jobId, 15);
-    const productInfo = await withUsageUser(usageUser, () => completeMissingProductInfo(request.productInfo, request.assets));
+    const productInfo = await completeMissingProductInfo(request.productInfo, request.assets);
 
     await updateJobProgress(jobId, 35);
-    const results = await withUsageUser(usageUser, () => generateBuyerShowResults(
+    const results = await generateBuyerShowResults(
       { ...request, productInfo },
       {
         shouldStop: () => shouldCancelGenerationJob(jobId),
         onPartialResults: (partialResults, currentProductInfo) =>
           persistPartialGenerationResults(jobId, currentProductInfo, partialResults),
       },
-    ));
+    );
 
     if (await shouldCancelGenerationJob(jobId)) {
       await withPrismaRetry((client) =>
