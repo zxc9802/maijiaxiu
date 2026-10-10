@@ -11,6 +11,8 @@ export const providerConfig = {
   xaiImageModel: process.env.XAI_IMAGE_MODEL ?? 'gpt-image-2',
   xaiImageSize: process.env.XAI_IMAGE_SIZE ?? '1024x1024',
   xaiImageQuality: process.env.XAI_IMAGE_QUALITY ?? 'high',
+  falApiKey: process.env.FAL_KEY,
+  falImageModel: process.env.FAL_IMAGE_MODEL ?? 'openai/gpt-image-2.5/sunburst/edit',
 };
 
 export function requireProviderSecret(value: string | undefined, name: string) {

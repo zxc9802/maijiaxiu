@@ -19,4 +19,7 @@ assert.ok(source.includes('XAI_IMAGE_QUALITY'));
 assert.ok(source.includes('api-xai.ainaibahub.com'));
 assert.ok(source.includes('gpt-image-2'));
 assert.ok(source.includes('1024x1024'));
+assert.ok(source.includes('FAL_KEY'));
+assert.ok(source.includes('FAL_IMAGE_MODEL'));
+assert.ok(source.includes('openai/gpt-image-2.5/sunburst/edit'));
 assert.ok(!source.includes('sk-'), 'provider config must not hardcode API keys');

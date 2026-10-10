@@ -20,7 +20,7 @@ assert.ok(imageProvider.includes('fetch'));
 assert.ok(imageProvider.includes('requestJsonOverHttp1'), 'image provider should include an HTTP/1.1 fallback');
 assert.ok(imageProvider.includes('node:https'), 'image provider should use Node HTTPS for the HTTP/1.1 fallback');
 assert.ok(imageProvider.includes('Image provider connection failed'), 'image provider should wrap low-level connection errors with provider context');
-assert.ok(imageProvider.includes('const maxImageProviderAttempts = 5'), 'image provider should try each image provider 5 times');
+assert.ok(imageProvider.includes('const maxImageProviderAttempts = 4'), 'image provider should try each existing image provider once plus three retries');
 assert.ok(imageProvider.includes('buildAlternatingImageProviderAttempts'), 'image provider should alternate Yunwu and XAI attempts');
 assert.ok(imageProvider.includes("name: 'yunwu'"), 'image provider should include Yunwu as the primary image provider');
 assert.ok(imageProvider.includes("name: 'xai'"), 'image provider should include XAI as the fallback image provider');

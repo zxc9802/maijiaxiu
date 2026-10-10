@@ -37,7 +37,7 @@ type ProviderHttpResponse = {
   body: string;
 };
 
-const maxImageProviderAttempts = 5;
+const maxImageProviderAttempts = 4; // Initial attempt plus three retries per existing provider.
 const retryableProviderStatuses = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
 
 export async function generateBuyerShowImage(input: ImageGenerationInput) {
@@ -60,6 +60,17 @@ export async function generateBuyerShowImage(input: ImageGenerationInput) {
       lastError = error instanceof Error ? error : new Error('Image provider failed');
       failures.push(`${attempt.provider.name}#${attempt.attemptNumber}: ${lastError.message}`);
     }
+  }
+
+  try {
+    const generated = await requestFalImageGeneration(input);
+    return {
+      ...generated,
+      type: input.imageType,
+    };
+  } catch (error) {
+    lastError = error instanceof Error ? error : new Error('Fal image provider failed');
+    failures.push(`fal#1: ${lastError.message}`);
   }
 
   console.error('[buyer-show-image-provider] All image providers failed', failures, lastError);
@@ -92,6 +103,39 @@ function buildAlternatingImageProviderAttempts(providers: ImageProviderConfig[])
   return Array.from({ length: maxImageProviderAttempts }, (_, index) => index + 1).flatMap((attemptNumber) =>
     providers.map((provider) => ({ provider, attemptNumber })),
   );
+}
+
+async function requestFalImageGeneration(input: ImageGenerationInput): Promise<GeneratedProviderImage> {
+  const apiKey = requireProviderSecret(providerConfig.falApiKey, 'FAL_KEY');
+  const [width, height] = providerConfig.imageSize.split('x').map(Number);
+  const response = await fetch(`https://fal.run/${providerConfig.falImageModel}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Key ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt: input.prompt,
+      image_urls: input.imageUrls ?? [],
+      image_size: { width, height },
+      num_images: 1,
+      output_format: 'png',
+    }),
+    signal: AbortSignal.timeout(180000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Fal image provider failed with HTTP ${response.status}`);
+  }
+
+  const parsed = (await response.json()) as { images?: Array<{ url?: string }> };
+  const url = parsed.images?.[0]?.url;
+  if (!url) {
+    throw new Error('Fal image provider returned no image data');
+  }
+
+  return { url };
 }
 
 async function requestYunwuImageGeneration(
